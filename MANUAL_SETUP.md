@@ -541,14 +541,225 @@ You'll know the setup is successful when:
 -   ✅ GPU Operator pods are all running
 -   ✅ Test workloads complete successfully
 
-## 📚 Next Steps
+## 🧹 Manual Teardown and Cleanup
+
+> ⚠️ **IMPORTANT**: This setup creates billable Azure resources. GPU VMs can cost $25-100+ per day if left running!
+
+### 9.1 Quick Cleanup Commands
+
+```bash
+# Remove all Kubernetes GPU workloads
+kubectl delete deployment multi-gpu-test --ignore-not-found=true
+kubectl delete job gpu-test-manual --ignore-not-found=true
+kubectl delete namespace gpu-workloads --ignore-not-found=true
+
+# Uninstall GPU Operator
+helm uninstall gpu-operator -n gpu-operator-resources
+kubectl delete namespace gpu-operator-resources --ignore-not-found=true
+
+# Delete the entire resource group (removes ALL resources)
+RESOURCE_GROUP="aks-gpu-manual-rg"
+az group delete --name "$RESOURCE_GROUP" --yes --no-wait
+
+echo "💰 Cleanup initiated - billing will stop soon!"
+```
+
+### 9.2 Step-by-Step Manual Teardown
+
+#### Step 1: Remove GPU Workloads
+
+```bash
+# List current GPU workloads
+kubectl get pods --all-namespaces -o wide | grep nvidia
+
+# Remove test deployments
+kubectl delete deployment multi-gpu-test --ignore-not-found=true
+kubectl delete job gpu-test-manual --ignore-not-found=true
+
+# Remove custom namespaces
+kubectl delete namespace gpu-workloads --ignore-not-found=true
+
+echo "✅ GPU workloads removed"
+```
+
+#### Step 2: Uninstall NVIDIA GPU Operator
+
+```bash
+# Check current Helm releases
+helm list --all-namespaces
+
+# Uninstall GPU Operator
+helm uninstall gpu-operator -n gpu-operator-resources
+
+# Wait for pods to terminate
+kubectl wait --for=delete pods --all -n gpu-operator-resources --timeout=300s
+
+# Remove namespace
+kubectl delete namespace gpu-operator-resources --ignore-not-found=true
+
+# Clean up any remaining cluster-scoped resources
+kubectl delete clusterpolicy cluster-policy --ignore-not-found=true
+
+echo "✅ GPU Operator uninstalled"
+```
+
+#### Step 3: Delete Azure Kubernetes Service
+
+```bash
+# Set variables (use your actual values)
+RESOURCE_GROUP="aks-gpu-manual-rg"
+CLUSTER_NAME="aks-gpu-manual"
+
+# Delete AKS cluster (this also removes node pools)
+echo "🗑️ Deleting AKS cluster..."
+az aks delete \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$CLUSTER_NAME" \
+    --yes \
+    --no-wait
+
+echo "✅ AKS cluster deletion initiated"
+```
+
+#### Step 4: Delete Supporting Azure Resources
+
+```bash
+# Delete Log Analytics workspace
+echo "🗑️ Deleting Log Analytics workspace..."
+az monitor log-analytics workspace delete \
+    --resource-group "$RESOURCE_GROUP" \
+    --workspace-name "aks-gpu-logs" \
+    --yes \
+    --no-wait
+
+# Delete Virtual Network and subnets
+echo "🗑️ Deleting virtual network..."
+az network vnet delete \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "aks-gpu-vnet"
+
+echo "✅ Supporting resources deleted"
+```
+
+#### Step 5: Delete Resource Group (Complete Cleanup)
+
+```bash
+# ⚠️ NUCLEAR OPTION: Delete everything in the resource group
+RESOURCE_GROUP="aks-gpu-manual-rg"
+
+# List resources that will be deleted
+echo "📋 Resources to be deleted:"
+az resource list --resource-group "$RESOURCE_GROUP" --output table
+
+echo ""
+echo "⚠️ WARNING: This will delete ALL resources in $RESOURCE_GROUP"
+echo "💰 This action will stop all billing for these resources"
+echo ""
+read -p "Type 'DELETE' to confirm: " confirmation
+
+if [ "$confirmation" = "DELETE" ]; then
+    az group delete --name "$RESOURCE_GROUP" --yes --no-wait
+    echo "✅ Resource group deletion initiated"
+    echo "💰 All resources will be deleted - billing stopped!"
+else
+    echo "❌ Deletion cancelled"
+fi
+```
+
+### 9.3 Clean Up Local Configuration
+
+```bash
+# Remove kubectl context
+CLUSTER_NAME="aks-gpu-manual"
+kubectl config delete-context "$CLUSTER_NAME" 2>/dev/null || true
+
+# Clear any cached Azure credentials (optional)
+az account clear
+
+# Remove Helm repositories (optional)
+helm repo remove nvidia
+
+echo "✅ Local configuration cleaned"
+```
+
+### 9.4 Verification and Cost Monitoring
+
+```bash
+# Verify resource group is deleted
+RESOURCE_GROUP="aks-gpu-manual-rg"
+if az group exists --name "$RESOURCE_GROUP"; then
+    echo "⚠️ Resource group still exists - deletion in progress"
+    echo "📊 Check deletion status:"
+    az group show --name "$RESOURCE_GROUP" --query "properties.provisioningState" -o tsv
+else
+    echo "✅ Resource group successfully deleted"
+fi
+
+# Check for any remaining GPU-related resources
+echo "� Checking for remaining GPU resources across all subscriptions..."
+az resource list --query "[?contains(type, 'Microsoft.ContainerService') || contains(name, 'gpu') || contains(name, 'nvidia')].{Name:name, Type:type, ResourceGroup:resourceGroup}" --output table
+```
+
+### 9.5 Automated Cleanup Script
+
+For convenience, you can use the comprehensive cleanup script:
+
+```bash
+# Navigate to the repository root
+cd /path/to/aks-gpu-terraform
+
+# Run interactive cleanup
+./scripts/cleanup.sh
+
+# Or run specific cleanup modes
+./scripts/cleanup.sh --manual     # Clean manual deployment
+./scripts/cleanup.sh --terraform  # Clean Terraform deployment
+./scripts/cleanup.sh --emergency  # Nuclear option - clean everything
+```
+
+### 9.6 Cost Monitoring Best Practices
+
+1.  **Set up Azure Budgets**:
+    ```bash
+    # Create a budget alert for your subscription
+    az consumption budget create \
+        --budget-name "AKS-GPU-Budget" \
+        --amount 100 \
+        --category "Cost" \
+        --time-grain "Monthly"
+    ```
+
+2.  **Regular Resource Audits**:
+    ```bash
+    # List expensive resources
+    az resource list --query "[?type=='Microsoft.ContainerService/managedClusters' || contains(type, 'Compute')].{Name:name, Type:type, Location:location, ResourceGroup:resourceGroup}" --output table
+    ```
+
+3.  **Automated Cleanup Reminders**:
+    -   Set calendar reminders to check your Azure resources
+    -   Use Azure Automation to automatically shut down development environments
+    -   Monitor your billing dashboard regularly
+
+### 💰 Cost Impact Summary
+
+Properly cleaning up this setup saves:
+
+-   **GPU VMs**: $20-65/day per node (Standard_NC6s_v3)
+-   **AKS Management**: $2.40/day ($0.10/hour)
+-   **Storage & Networking**: $1-5/day
+-   **Total Potential Savings**: $25-100+ per day
+
+> 🎯 **Pro Tip**: Always run cleanup immediately after testing to avoid unexpected charges!
+
+## �📚 Next Steps
 
 After completing this manual setup:
 
 1.  **Deploy your ML workloads** with GPU resource requests
 2.  **Monitor GPU utilization** and adjust time-slicing as needed
 3.  **Set up proper monitoring** with Prometheus and Grafana
-4.  **Implement auto-scaling policies** for cost optimization
-5.  **Consider using Terraform** for future deployments for better automation
+4.  **Create cleanup reminders** to avoid unexpected costs
+5.  **Implement auto-scaling policies** for cost optimization
+6.  **Consider using Terraform** for future deployments for better automation
 
 This manual process gives you deep understanding of how GPU time-slicing works in AKS, making you better equipped to troubleshoot and optimize your GPU workloads!

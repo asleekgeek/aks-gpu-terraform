@@ -271,13 +271,26 @@ kubectl logs -n gpu-operator-resources -l app=nvidia-device-plugin-daemonset
 kubectl logs -n gpu-operator-resources -l app=node-feature-discovery
 ```
 
-## 💰 Cost Management
+## 💰 Cost Management & Cleanup
+
+> ⚠️ **IMPORTANT**: GPU VMs are expensive! Always clean up when done.
+
+### Quick Cleanup
+
+```bash
+# Emergency cleanup - stops all billing immediately
+./scripts/cleanup.sh --emergency
+
+# Interactive cleanup with options
+./scripts/cleanup.sh
+```
 
 ### GPU VM Pricing
 
--   Standard_NC6s_v3: ~$0.90/hour (varies by region)
+-   Standard_NC6s_v3: ~$0.90-2.70/hour (varies by region and Azure plan)
+-   **Daily cost**: $21-65 per GPU node
+-   **Monthly cost**: $648-1,944 per GPU node
 -   Consider using spot instances for development/testing
--   Implement auto-scaling to minimize costs
 
 ### Cost Optimization Tips
 
@@ -287,7 +300,27 @@ az aks nodepool scale --cluster-name <cluster-name> --name gpupool --node-count 
 
 # Scale up when needed
 az aks nodepool scale --cluster-name <cluster-name> --name gpupool --node-count 1 --resource-group <rg-name>
+
+# Complete teardown (Terraform)
+cd terraform/
+terraform destroy -auto-approve
+
+# Complete teardown (Manual setup)
+./scripts/cleanup.sh --manual
 ```
+
+For detailed teardown instructions, see **[TEARDOWN.md](TEARDOWN.md)**.
+
+## 🧹 Cleanup Options
+
+| Method                             | Speed   | Safety | Use Case                         |
+| ---------------------------------- | ------- | ------ | -------------------------------- |
+| `./scripts/cleanup.sh`             | Fast    | High   | Interactive with confirmations   |
+| `terraform destroy`                | Medium  | High   | Terraform-managed resources only |
+| Azure Portal                       | Slow    | Medium | Visual confirmation              |
+| `./scripts/cleanup.sh --emergency` | Fastest | Low    | Stop billing immediately         |
+
+> 💡 **Pro Tip**: Set up Azure Budget alerts to avoid unexpected charges!
 
 ## 🔒 Security Considerations
 
@@ -298,9 +331,10 @@ az aks nodepool scale --cluster-name <cluster-name> --name gpupool --node-count 
 
 ## 📚 Additional Resources
 
-### **Setup Guides**
+### **Setup & Teardown Guides**
 
 -   **[Manual Setup Guide](MANUAL_SETUP.md)** - Step-by-step manual deployment
+-   **[Complete Teardown Guide](TEARDOWN.md)** - Comprehensive cleanup instructions
 -   **[GPU Compatibility Matrix](GPU_COMPATIBILITY.md)** - Complete GPU support guide
 
 ### **External Documentation**
@@ -312,17 +346,21 @@ az aks nodepool scale --cluster-name <cluster-name> --name gpupool --node-count 
 
 ## 🔄 Setup Method Comparison
 
-| Aspect               | Terraform (This Guide)   | [Manual Setup](MANUAL_SETUP.md) |
-| -------------------- | ------------------------ | ------------------------------- |
-| **Time to Deploy**   | 15-20 minutes            | 30-45 minutes                   |
-| **Reproducibility**  | ✅ Fully automated        | ⚠️ Manual steps each time       |
-| **Learning Value**   | Medium                   | ✅ High - understand each step   |
-| **Production Ready** | ✅ Infrastructure as Code | ✅ Same end result               |
-| **Customization**    | Template-based           | ✅ Full control                  |
-| **Error Handling**   | ✅ Built-in validation    | Manual troubleshooting          |
-| **Best For**         | Production, teams, CI/CD | Learning, troubleshooting       |
+| Aspect               | Terraform (This Guide)     | [Manual Setup](MANUAL_SETUP.md) |
+| -------------------- | -------------------------- | ------------------------------- |
+| **Time to Deploy**   | 15-20 minutes              | 30-45 minutes                   |
+| **Time to Cleanup**  | 2-5 minutes                | 5-10 minutes                    |
+| **Reproducibility**  | ✅ Fully automated          | ⚠️ Manual steps each time       |
+| **Learning Value**   | Medium                     | ✅ High - understand each step   |
+| **Production Ready** | ✅ Infrastructure as Code   | ✅ Same end result               |
+| **Customization**    | Template-based             | ✅ Full control                  |
+| **Error Handling**   | ✅ Built-in validation      | Manual troubleshooting          |
+| **Cost Control**     | ✅ Easy `terraform destroy` | Manual resource tracking        |
+| **Best For**         | Production, teams, CI/CD   | Learning, troubleshooting       |
 
 **Recommendation**: Start with the [Manual Setup](MANUAL_SETUP.md) to understand the process, then use Terraform for production deployments.
+
+> 🧹 **Cleanup Reminder**: Regardless of setup method, always use **[TEARDOWN.md](TEARDOWN.md)** for complete cleanup!
 
 ## 🤝 Contributing
 
