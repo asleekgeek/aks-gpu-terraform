@@ -11,6 +11,22 @@ This setup enables:
 -   GPU time-slicing to share GPUs between multiple workloads
 -   Automated deployment using Terraform and Kubernetes manifests
 
+## 🚀 Setup Options
+
+Choose your preferred setup method:
+
+### **🤖 Automated Setup (Recommended)**
+- **[Terraform Deployment](#quick-start)** - Fully automated infrastructure as code
+- ⏱️ **Setup time**: 15-20 minutes
+- ✅ **Best for**: Production, reproducible deployments, teams
+
+### **🔧 Manual Setup**
+- **[Manual Step-by-Step Guide](MANUAL_SETUP.md)** - Learn every step of the process
+- ⏱️ **Setup time**: 30-45 minutes  
+- ✅ **Best for**: Learning, troubleshooting, understanding the architecture
+
+Both approaches result in the same production-ready AKS cluster with GPU time-slicing capabilities.
+
 ## 📋 Prerequisites
 
 Before you begin, ensure you have the following tools installed:
@@ -123,15 +139,18 @@ kubectl patch daemonset nvidia-device-plugin-daemonset -n gpu-operator-resources
 
 ## 📁 Repository Structure
 
-    aks-gpu-terraform/
-    ├── README.md                          # This file
-    ├── .gitignore                         # Git ignore rules
-    ├── terraform/                         # Terraform configuration
-    │   ├── main.tf                        # Main Terraform configuration
-    │   ├── variables.tf                   # Input variables
-    │   ├── outputs.tf                     # Output values
-    │   ├── versions.tf                    # Provider versions
-    │   └── terraform.tfvars.example       # Example variables file
+```
+aks-gpu-terraform/
+├── README.md                          # This file (Terraform setup)
+├── MANUAL_SETUP.md                    # Manual step-by-step setup guide
+├── GPU_COMPATIBILITY.md               # GPU compatibility matrix
+├── .gitignore                         # Git ignore rules
+├── terraform/                         # Terraform configuration
+│   ├── main.tf                        # Main Terraform configuration
+│   ├── variables.tf                   # Input variables
+│   ├── outputs.tf                     # Output values
+│   ├── versions.tf                    # Provider versions
+│   └── terraform.tfvars.example       # Example variables file
     ├── kubernetes/                        # Kubernetes manifests
     │   ├── gpu-operator-values.yaml       # Helm values for GPU Operator
     │   ├── gpu-time-slicing-config.yaml   # Time-slicing configuration
@@ -279,10 +298,29 @@ az aks nodepool scale --cluster-name <cluster-name> --name gpupool --node-count 
 
 ## 📚 Additional Resources
 
+### **Setup Guides**
+- **[Manual Setup Guide](MANUAL_SETUP.md)** - Step-by-step manual deployment
+- **[GPU Compatibility Matrix](GPU_COMPATIBILITY.md)** - Complete GPU support guide
+
+### **External Documentation**
 -   [NVIDIA GPU Operator Documentation](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/overview.html)
 -   [Azure AKS GPU Documentation](https://docs.microsoft.com/en-us/azure/aks/gpu-cluster)
 -   [Kubernetes GPU Scheduling](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
 -   [GPU Time-Slicing Guide](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/gpu-sharing.html)
+
+## 🔄 Setup Method Comparison
+
+| Aspect | Terraform (This Guide) | [Manual Setup](MANUAL_SETUP.md) |
+|--------|------------------------|----------------------------------|
+| **Time to Deploy** | 15-20 minutes | 30-45 minutes |
+| **Reproducibility** | ✅ Fully automated | ⚠️ Manual steps each time |
+| **Learning Value** | Medium | ✅ High - understand each step |
+| **Production Ready** | ✅ Infrastructure as Code | ✅ Same end result |
+| **Customization** | Template-based | ✅ Full control |
+| **Error Handling** | ✅ Built-in validation | Manual troubleshooting |
+| **Best For** | Production, teams, CI/CD | Learning, troubleshooting |
+
+**Recommendation**: Start with the [Manual Setup](MANUAL_SETUP.md) to understand the process, then use Terraform for production deployments.
 
 ## 🤝 Contributing
 
