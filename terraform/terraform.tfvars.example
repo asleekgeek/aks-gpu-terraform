@@ -1,0 +1,64 @@
+# Example Terraform variables file
+# Copy this to terraform.tfvars and modify as needed
+
+# General Configuration
+resource_group_name = "aks-gpu-rg"
+location           = "East US"
+environment        = "dev"
+
+# AKS Configuration
+cluster_name       = "aks-gpu-cluster"
+kubernetes_version = "1.28.3"
+
+# GPU Node Pool Configuration
+gpu_vm_size    = "Standard_NC6s_v3"  # 1 x NVIDIA Tesla V100
+gpu_node_count = 1
+gpu_min_count  = 0
+gpu_max_count  = 3
+
+# GPU Architecture (auto-detected based on VM size, but can override)
+# gpu_architecture = "volta"  # Tesla V100
+
+# Alternative GPU VM sizes with their architectures:
+# === Tesla V100 (Volta) ===
+# gpu_vm_size = "Standard_NC6s_v3"    # 1 x Tesla V100 16GB
+# gpu_vm_size = "Standard_NC12s_v3"   # 2 x Tesla V100 16GB
+# gpu_vm_size = "Standard_NC24s_v3"   # 4 x Tesla V100 16GB
+# gpu_vm_size = "Standard_ND40rs_v2"  # 8 x Tesla V100 32GB
+# gpu_architecture = "volta"
+
+# === Tesla A100 (Ampere) ===
+# gpu_vm_size = "Standard_ND96asr_v4"     # 8 x A100 40GB
+# gpu_vm_size = "Standard_ND96amsr_A100_v4" # 8 x A100 80GB
+# gpu_architecture = "ampere"
+
+# === Tesla T4 (Turing) ===
+# gpu_vm_size = "Standard_NC4as_T4_v3"    # 1 x Tesla T4
+# gpu_vm_size = "Standard_NC8as_T4_v3"    # 1 x Tesla T4
+# gpu_vm_size = "Standard_NC16as_T4_v3"   # 1 x Tesla T4
+# gpu_vm_size = "Standard_NC64as_T4_v3"   # 4 x Tesla T4
+# gpu_architecture = "turing"
+
+# === Tesla K80 (Kepler) - Legacy ===
+# gpu_vm_size = "Standard_NC6"        # 1 x Tesla K80
+# gpu_vm_size = "Standard_NC12"       # 2 x Tesla K80
+# gpu_vm_size = "Standard_NC24"       # 4 x Tesla K80
+# gpu_architecture = "kepler"
+
+# Networking (optional - uses defaults if not specified)
+# vnet_address_space = ["10.0.0.0/16"]
+# aks_subnet_address_prefix = "10.0.1.0/24"
+
+# Monitoring (optional - uses defaults if not specified)
+# log_analytics_workspace_sku = "PerGB2018"
+# log_retention_in_days = 30
+
+# Tags (optional - merges with defaults)
+tags = {
+  Environment = "dev"
+  Project     = "aks-gpu-terraform"
+  ManagedBy   = "terraform"
+  Purpose     = "gpu-ml-workloads"
+  Owner       = "your-name"
+  CostCenter  = "your-cost-center"
+}

@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: time-slicing-config
+  namespace: gpu-operator-resources
+data:
+  # Default time-slicing configuration (works for all GPU types)
+  any: |-
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 4  # Conservative default for most GPUs
+        failRequestsGreaterThanOne: true
+  
+  # Configuration for older/smaller GPUs (Tesla K80, Tesla M60)
+  kepler: |-
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 2  # Conservative for older GPUs
+        failRequestsGreaterThanOne: true
+  
+  # Configuration for Tesla P40/P100 (Pascal architecture)
+  pascal: |-
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 4
+        failRequestsGreaterThanOne: true
+  
+  # Configuration for Tesla V100 (Volta architecture)
+  volta: |-
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 6  # V100 can handle more concurrent workloads
+        failRequestsGreaterThanOne: true
+  
+  # Configuration for Tesla T4 (Turing architecture)
+  turing: |-
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 4  # Good balance for T4
+        failRequestsGreaterThanOne: true
+  
+  # Configuration for A100 (Ampere architecture) - Non-MIG mode
+  ampere: |-
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 8  # A100 can handle many concurrent workloads
+        failRequestsGreaterThanOne: true
+  
+  # Configuration for H100 (Hopper architecture) - Non-MIG mode
+  hopper: |-
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 10  # H100 has excellent time-slicing capabilities
+        failRequestsGreaterThanOne: true
+  
+  # Development configuration (more aggressive slicing)
+  dev-high-density: |-
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 16  # Maximum slicing for development/testing
+        failRequestsGreaterThanOne: true
+  
+  # Production configuration (conservative slicing for performance)
+  prod-conservative: |-
+    version: v1
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 2  # Minimal slicing for maximum performance
+        failRequestsGreaterThanOne: true
+
+---
+# Patch the ClusterPolicy to use time-slicing
+apiVersion: nvidia.com/v1
+kind: ClusterPolicy
+metadata:
+  name: cluster-policy
+spec:
+  # Ensure MIG is disabled for time-slicing
+  mig:
+    strategy: "none"  # Explicitly disable MIG
+  
+  devicePlugin:
+    config:
+      name: time-slicing-config
+      default: "any"  # Use the "any" configuration by default
+    
+    # Additional environment variables for device plugin
+    env:
+      - name: NVIDIA_VISIBLE_DEVICES
+        value: "all"
+      - name: NVIDIA_DRIVER_CAPABILITIES
+        value: "compute,utility"

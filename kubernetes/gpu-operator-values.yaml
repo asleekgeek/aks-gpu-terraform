@@ -1,0 +1,181 @@
+# Helm values for NVIDIA GPU Operator
+# This file configures the GPU Operator for optimal GPU time-slicing
+
+# Operator configuration
+operator:
+  defaultRuntime: containerd
+  
+# Driver configuration
+driver:
+  enabled: true
+  version: "535.129.03"
+  
+  # Repository configuration
+  repository: nvidia
+  image: driver
+  
+  # Node selector for GPU nodes
+  nodeSelector:
+    accelerator: nvidia
+    
+  # Tolerations for GPU nodes
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+      
+  # Resources for driver pods
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Toolkit configuration
+toolkit:
+  enabled: true
+  version: "v1.14.3-centos7"
+  
+  # Node selector for GPU nodes
+  nodeSelector:
+    accelerator: nvidia
+    
+  # Tolerations for GPU nodes
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+# Device Plugin configuration (critical for time-slicing)
+devicePlugin:
+  enabled: true
+  version: "v0.14.3-ubi8"
+  
+  # Enable time-slicing config
+  config:
+    name: "time-slicing-config"
+    default: "any"
+  
+  # Node selector for GPU nodes
+  nodeSelector:
+    accelerator: nvidia
+    
+  # Tolerations for GPU nodes
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+      
+  # Resources for device plugin
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Container Runtime configuration
+containerdConfig:
+  enabled: true
+  
+# DCGM (Data Center GPU Manager) for monitoring
+dcgm:
+  enabled: true
+  version: "3.2.5-1-ubuntu20.04"
+  
+  # Node selector for GPU nodes
+  nodeSelector:
+    accelerator: nvidia
+    
+  # Tolerations for GPU nodes
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+# DCGM Exporter for Prometheus metrics
+dcgmExporter:
+  enabled: true
+  version: "3.2.5-3.1.8-ubuntu20.04"
+  
+  # Service monitor for Prometheus scraping
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    honorLabels: false
+    additionalLabels: {}
+    
+  # Node selector for GPU nodes
+  nodeSelector:
+    accelerator: nvidia
+    
+  # Tolerations for GPU nodes
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+# Node Feature Discovery
+nfd:
+  enabled: true
+  
+# MIG (Multi-Instance GPU) Manager - explicitly disabled for time-slicing
+migManager:
+  enabled: false  # Critical: MIG must be disabled for time-slicing to work
+  
+# MIG configuration (ensure it's disabled)
+mig:
+  strategy: "none"  # Options: "none", "single", "mixed" - use "none" for time-slicing
+
+# GPU Feature Discovery
+gfd:
+  enabled: true
+  version: "v0.8.2-ubi8"
+  
+  # Node selector for GPU nodes
+  nodeSelector:
+    accelerator: nvidia
+    
+  # Tolerations for GPU nodes
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+# Validator
+validator:
+  plugin:
+    enabled: true
+    
+    # Environment variables for the validator
+    env:
+      - name: WITH_WORKLOAD
+        value: "true"
+        
+  # Node selector for GPU nodes
+  nodeSelector:
+    accelerator: nvidia
+    
+  # Tolerations for GPU nodes
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+# Node status exporter
+nodeStatusExporter:
+  enabled: true
+  
+# Platform support
+platform:
+  openshift: false

@@ -1,0 +1,194 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gpu-workloads
+  labels:
+    name: gpu-workloads
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multi-gpu-workload
+  namespace: gpu-workloads
+  labels:
+    app: multi-gpu-workload
+spec:
+  replicas: 4  # More replicas than physical GPUs to test time-slicing
+  selector:
+    matchLabels:
+      app: multi-gpu-workload
+  template:
+    metadata:
+      labels:
+        app: multi-gpu-workload
+    spec:
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      nodeSelector:
+        accelerator: nvidia
+      containers:
+        - name: gpu-worker
+          image: nvidia/cuda:12.2-runtime-ubuntu20.04
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              echo "=== GPU Worker Starting ==="
+              echo "Pod: $POD_NAME"
+              echo "Node: $NODE_NAME"
+              echo "Time: $(date)"
+              echo ""
+              
+              # Install Python and dependencies
+              apt-get update && apt-get install -y python3 python3-pip
+              pip3 install numpy
+              
+              echo "=== GPU Information ==="
+              nvidia-smi -L
+              nvidia-smi --query-gpu=index,name,uuid,utilization.gpu,memory.used,memory.total --format=csv
+              echo ""
+              
+              echo "=== Starting GPU Workload ==="
+              python3 -c "
+              import time
+              import subprocess
+              import os
+              import random
+              
+              pod_name = os.environ.get('POD_NAME', 'unknown')
+              node_name = os.environ.get('NODE_NAME', 'unknown')
+              
+              print(f'Pod {pod_name} on node {node_name} starting workload...')
+              
+              # Run for 5 minutes with periodic status updates
+              start_time = time.time()
+              iteration = 0
+              
+              while time.time() - start_time < 300:  # 5 minutes
+                  iteration += 1
+                  
+                  # Simple GPU activity to show sharing
+                  try:
+                      # Run nvidia-smi to access GPU
+                      result = subprocess.run(['nvidia-smi', '--query-gpu=utilization.gpu,memory.used', '--format=csv,noheader,nounits'], 
+                                            capture_output=True, text=True)
+                      gpu_util = result.stdout.strip()
+                      
+                      print(f'[{iteration:03d}] {pod_name}: GPU Util/Mem: {gpu_util}')
+                      
+                      # Small workload simulation
+                      subprocess.run(['nvidia-smi', '-q'], capture_output=True, timeout=2)
+                      
+                  except Exception as e:
+                      print(f'[{iteration:03d}] {pod_name}: Error accessing GPU: {e}')
+                  
+                  # Random sleep to simulate varying workloads
+                  time.sleep(random.uniform(5, 15))
+              
+              print(f'Pod {pod_name} workload completed after {iteration} iterations')
+              "
+              
+              echo "=== GPU Worker Completed ==="
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          resources:
+            requests:
+              nvidia.com/gpu: 1  # Each pod requests 1 virtual GPU
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              nvidia.com/gpu: 1
+              memory: "1Gi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: multi-gpu-workload-service
+  namespace: gpu-workloads
+  labels:
+    app: multi-gpu-workload
+spec:
+  selector:
+    app: multi-gpu-workload
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  type: ClusterIP
+
+---
+# Job to monitor the multi-GPU workload
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gpu-monitor
+  namespace: gpu-workloads
+spec:
+  template:
+    metadata:
+      labels:
+        app: gpu-monitor
+    spec:
+      restartPolicy: Never
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      nodeSelector:
+        accelerator: nvidia
+      containers:
+        - name: monitor
+          image: nvidia/cuda:12.2-runtime-ubuntu20.04
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              echo "=== GPU Monitor Starting ==="
+              echo "Time: $(date)"
+              echo ""
+              
+              echo "=== Initial GPU State ==="
+              nvidia-smi
+              echo ""
+              
+              echo "=== Monitoring GPU Usage for 6 minutes ==="
+              echo "Timestamp,GPU_Util_%,Memory_Used_MB,Memory_Total_MB,Processes"
+              
+              for i in {1..72}; do  # 6 minutes, every 5 seconds
+                  timestamp=$(date '+%H:%M:%S')
+                  gpu_info=$(nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits)
+                  process_count=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader | wc -l)
+                  
+                  echo "$timestamp,$gpu_info,$process_count"
+                  sleep 5
+              done
+              
+              echo ""
+              echo "=== Final GPU State ==="
+              nvidia-smi
+              echo "=== GPU Monitor Completed ==="
+          resources:
+            requests:
+              nvidia.com/gpu: 1
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              nvidia.com/gpu: 1
+              memory: "512Mi"
+              cpu: "200m"
