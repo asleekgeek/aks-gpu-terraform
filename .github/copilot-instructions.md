@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-This is an Azure Kubernetes Service (AKS) infrastructure project focused on **GPU time-slicing** using NVIDIA GPU Operator. The project supports both Terraform-based (automated) and manual deployment workflows for production GPU workloads.
+This is a **GPU time-slicing** project using NVIDIA GPU Operator that supports multiple deployment scenarios: **Azure Kubernetes Service (AKS)** and **on-premises Kubernetes clusters**. The project enables GPU sharing between multiple workloads through time-slicing configuration.
 
-**Core Architecture**: AKS cluster with dual node pools (system + GPU), NVIDIA GPU Operator for resource management, and time-slicing configuration for GPU sharing between multiple workloads.
+**Core Architecture**: Kubernetes cluster with GPU nodes, NVIDIA GPU Operator for resource management, and ConfigMap-based time-slicing configuration for GPU sharing between multiple workloads.
 
 ## Key Architectural Decisions
 
@@ -51,7 +51,9 @@ This is an Azure Kubernetes Service (AKS) infrastructure project focused on **GP
 
 ## Development Workflows
 
-### Deployment Commands
+## Development Workflows
+
+### Azure Deployment Commands
 
 ```bash
 # Terraform path (recommended)
@@ -63,10 +65,26 @@ cd ../scripts && ./deploy-gpu-operator.sh
 ./validate-setup.sh
 ```
 
+### On-Premises Deployment Commands
+
+```bash
+# Label and taint GPU nodes first
+kubectl label nodes <gpu-node> accelerator=nvidia
+kubectl taint nodes <gpu-node> nvidia.com/gpu=true:NoSchedule
+
+# Deploy GPU Operator
+./scripts/deploy-gpu-operator-onprem.sh
+
+# Validation
+./validate-setup-onprem.sh
+```
+
 ### Testing Patterns
 
-- Single GPU test: `kubernetes/examples/gpu-test-job.yaml` (nvidia-smi + CUDA sample)
-- Time-slicing test: `kubernetes/examples/multi-gpu-workload.yaml` (3 pods on 1 GPU)
+- **Azure**: `kubernetes/examples/gpu-test-job.yaml` (nvidia-smi + CUDA sample)
+- **Azure**: `kubernetes/examples/multi-gpu-workload.yaml` (3 pods on 1 GPU)
+- **On-Premises**: `kubernetes/examples/gpu-test-onprem.yaml` (on-prem GPU test)
+- **On-Premises**: `kubernetes/examples/multi-gpu-onprem.yaml` (on-prem time-slicing test)
 - Validation suite: 8 automated tests from cluster connectivity to time-slicing functionality
 
 ### Cost Control Commands

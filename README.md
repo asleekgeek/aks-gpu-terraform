@@ -15,6 +15,8 @@ This setup enables:
 
 Choose your preferred setup method:
 
+### **☁️ Azure Cloud Deployment**
+
 ### **🤖 Automated Setup (Recommended)**
 
 -   **[Terraform Deployment](#quick-start)** - Fully automated infrastructure as code
@@ -27,7 +29,13 @@ Choose your preferred setup method:
 -   ⏱️ **Setup time**: 30-45 minutes  
 -   ✅ **Best for**: Learning, troubleshooting, understanding the architecture
 
-Both approaches result in the same production-ready AKS cluster with GPU time-slicing capabilities.
+### **🏢 On-Premises Deployment**
+
+-   **[On-Premises Setup Guide](ON_PREMISES_SETUP.md)** - Deploy to existing Kubernetes clusters
+-   ⏱️ **Setup time**: 20-30 minutes
+-   ✅ **Best for**: On-prem infrastructure, existing K8s clusters, edge deployments
+
+All approaches result in the same GPU time-slicing capabilities using NVIDIA GPU Operator.
 
 ## 📋 Prerequisites
 
@@ -142,26 +150,32 @@ kubectl patch daemonset nvidia-device-plugin-daemonset -n gpu-operator-resources
 ## 📁 Repository Structure
 
     aks-gpu-terraform/
-    ├── README.md                          # This file (Terraform setup)
-    ├── MANUAL_SETUP.md                    # Manual step-by-step setup guide
+    ├── README.md                          # This file (Azure setup overview)
+    ├── MANUAL_SETUP.md                    # Manual Azure step-by-step setup guide  
+    ├── ON_PREMISES_SETUP.md               # On-premises Kubernetes setup guide
     ├── GPU_COMPATIBILITY.md               # GPU compatibility matrix
+    ├── TEARDOWN.md                        # Cleanup and teardown guide
     ├── .gitignore                         # Git ignore rules
-    ├── terraform/                         # Terraform configuration
+    ├── terraform/                         # Terraform configuration (Azure only)
     │   ├── main.tf                        # Main Terraform configuration
     │   ├── variables.tf                   # Input variables
     │   ├── outputs.tf                     # Output values
     │   ├── versions.tf                    # Provider versions
     │   └── terraform.tfvars.example       # Example variables file
-        ├── kubernetes/                        # Kubernetes manifests
+        ├── kubernetes/                        # Kubernetes manifests (all deployments)
         │   ├── gpu-operator-values.yaml       # Helm values for GPU Operator
         │   ├── gpu-time-slicing-config.yaml   # Time-slicing configuration
         │   └── examples/                      # Example workloads
-        │       ├── gpu-test-job.yaml          # Simple GPU test
-        │       └── multi-gpu-workload.yaml    # Multi-container GPU sharing
+        │       ├── gpu-test-job.yaml          # Simple GPU test (Azure)
+        │       ├── multi-gpu-workload.yaml    # Multi-container GPU sharing (Azure)
+        │       ├── gpu-test-onprem.yaml       # Simple GPU test (on-premises)
+        │       └── multi-gpu-onprem.yaml      # Multi-container GPU sharing (on-premises)
         └── scripts/                           # Deployment scripts
-            ├── deploy-gpu-operator.sh          # GPU Operator deployment
+            ├── deploy-gpu-operator.sh          # GPU Operator deployment (Azure)
+            ├── deploy-gpu-operator-onprem.sh   # GPU Operator deployment (on-premises)
             ├── validate-setup.sh               # Validation script
-            └── cleanup.sh                      # Cleanup script
+            ├── validate-setup-onprem.sh        # On-premises validation script
+            └── cleanup.sh                      # Cleanup script (Azure)
 
     ## ⚙️ Configuration Options
 
@@ -333,7 +347,8 @@ For detailed teardown instructions, see **[TEARDOWN.md](TEARDOWN.md)**.
 
 ### **Setup & Teardown Guides**
 
--   **[Manual Setup Guide](MANUAL_SETUP.md)** - Step-by-step manual deployment
+-   **[Manual Setup Guide](MANUAL_SETUP.md)** - Step-by-step Azure manual deployment
+-   **[On-Premises Setup Guide](ON_PREMISES_SETUP.md)** - Deploy to existing Kubernetes clusters
 -   **[Complete Teardown Guide](TEARDOWN.md)** - Comprehensive cleanup instructions
 -   **[GPU Compatibility Matrix](GPU_COMPATIBILITY.md)** - Complete GPU support guide
 
@@ -346,21 +361,24 @@ For detailed teardown instructions, see **[TEARDOWN.md](TEARDOWN.md)**.
 
 ## 🔄 Setup Method Comparison
 
-| Aspect               | Terraform (This Guide)     | [Manual Setup](MANUAL_SETUP.md) |
-| -------------------- | -------------------------- | ------------------------------- |
-| **Time to Deploy**   | 15-20 minutes              | 30-45 minutes                   |
-| **Time to Cleanup**  | 2-5 minutes                | 5-10 minutes                    |
-| **Reproducibility**  | ✅ Fully automated          | ⚠️ Manual steps each time       |
-| **Learning Value**   | Medium                     | ✅ High - understand each step   |
-| **Production Ready** | ✅ Infrastructure as Code   | ✅ Same end result               |
-| **Customization**    | Template-based             | ✅ Full control                  |
-| **Error Handling**   | ✅ Built-in validation      | Manual troubleshooting          |
-| **Cost Control**     | ✅ Easy `terraform destroy` | Manual resource tracking        |
-| **Best For**         | Production, teams, CI/CD   | Learning, troubleshooting       |
+| Aspect               | Terraform (This Guide)     | [Manual Setup](MANUAL_SETUP.md) | [On-Premises](ON_PREMISES_SETUP.md) |
+| -------------------- | -------------------------- | ------------------------------- | ----------------------------------- |
+| **Infrastructure**   | Azure AKS                  | Azure AKS                       | Existing Kubernetes                 |
+| **Time to Deploy**   | 15-20 minutes              | 30-45 minutes                   | 20-30 minutes                       |
+| **Time to Cleanup**  | 2-5 minutes                | 5-10 minutes                    | 5-10 minutes                        |
+| **Reproducibility**  | ✅ Fully automated          | ⚠️ Manual steps each time       | ✅ Scriptable                        |
+| **Learning Value**   | Medium                     | ✅ High - understand each step   | ✅ High - K8s focused                |
+| **Production Ready** | ✅ Infrastructure as Code   | ✅ Same end result               | ✅ Enterprise ready                  |
+| **Customization**    | Template-based             | ✅ Full control                  | ✅ Full control                      |
+| **Cost Control**     | ✅ Easy `terraform destroy` | Manual resource tracking        | Hardware owned                      |
+| **Best For**         | Azure production, teams    | Learning Azure, troubleshooting | On-prem, edge, existing clusters    |
 
-**Recommendation**: Start with the [Manual Setup](MANUAL_SETUP.md) to understand the process, then use Terraform for production deployments.
+**Recommendations**: 
 
-> 🧹 **Cleanup Reminder**: Regardless of setup method, always use **[TEARDOWN.md](TEARDOWN.md)** for complete cleanup!
+-   **Azure Cloud**: Start with [Manual Setup](MANUAL_SETUP.md) to learn, then use Terraform for production
+-   **On-Premises**: Use [On-Premises Setup](ON_PREMISES_SETUP.md) for existing Kubernetes infrastructure
+
+> 🧹 **Cleanup Reminder**: Use appropriate cleanup methods for your deployment type!
 
 ## 🤝 Contributing
 
