@@ -2,7 +2,36 @@
 
 > ⚠️ **CRITICAL**: GPU VMs are expensive! This guide helps you clean up ALL billable resources quickly.
 
-## 🚨 Quick Emergency Cleanup
+## � Table of Contents
+
+- [🧹 Complete Teardown Guide](#-complete-teardown-guide)
+  - [� Table of Contents](#-table-of-contents)
+  - [�🚨 Quick Emergency Cleanup](#-quick-emergency-cleanup)
+  - [💰 Cost Impact](#-cost-impact)
+  - [🎯 Cleanup Methods](#-cleanup-methods)
+    - [Method 1: Automated Script (Recommended)](#method-1-automated-script-recommended)
+    - [Method 2: Terraform Cleanup](#method-2-terraform-cleanup)
+    - [Method 3: Manual Azure CLI Cleanup](#method-3-manual-azure-cli-cleanup)
+  - [🔍 Verification Steps](#-verification-steps)
+    - [1. Check Resource Groups](#1-check-resource-groups)
+    - [2. Check Expensive Resources](#2-check-expensive-resources)
+    - [3. Verify Billing Impact](#3-verify-billing-impact)
+  - [🎛️ Selective Cleanup Options](#️-selective-cleanup-options)
+    - [Keep AKS, Remove GPU Workloads Only](#keep-aks-remove-gpu-workloads-only)
+    - [Remove GPU Nodes, Keep Cluster](#remove-gpu-nodes-keep-cluster)
+  - [🚨 Common Cleanup Issues](#-common-cleanup-issues)
+    - [Issue: "Resource group not found"](#issue-resource-group-not-found)
+    - [Issue: "Resources still exist after group deletion"](#issue-resources-still-exist-after-group-deletion)
+    - [Issue: "Terraform state locked"](#issue-terraform-state-locked)
+    - [Issue: "Cannot delete AKS - nodes still exist"](#issue-cannot-delete-aks---nodes-still-exist)
+  - [📊 Monitoring and Alerts](#-monitoring-and-alerts)
+    - [Set Up Cost Alerts](#set-up-cost-alerts)
+    - [Daily Resource Check](#daily-resource-check)
+  - [🛡️ Prevention Best Practices](#️-prevention-best-practices)
+  - [🎯 Complete Cleanup Checklist](#-complete-cleanup-checklist)
+  - [🆘 Emergency Contacts](#-emergency-contacts)
+
+## �🚨 Quick Emergency Cleanup
 
 If you need to stop billing **immediately**:
 

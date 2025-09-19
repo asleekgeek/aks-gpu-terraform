@@ -2,6 +2,73 @@
 
 This guide provides step-by-step instructions for manually setting up an Azure Kubernetes Service (AKS) cluster with GPU time-slicing **without using Terraform**. This is perfect for learning the process, troubleshooting, or environments where Infrastructure as Code isn't preferred.
 
+## 📑 Table of Contents
+
+- [Manual Setup Guide: AKS with GPU Time-Slicing](#manual-setup-guide-aks-with-gpu-time-slicing)
+  - [📑 Table of Contents](#-table-of-contents)
+  - [🎯 Overview](#-overview)
+  - [📋 Prerequisites](#-prerequisites)
+    - [Required Tools](#required-tools)
+    - [Azure Authentication](#azure-authentication)
+    - [Check GPU Quota](#check-gpu-quota)
+  - [🏗️ Step 1: Prepare Azure Infrastructure](#️-step-1-prepare-azure-infrastructure)
+    - [1.1 Create Resource Group](#11-create-resource-group)
+    - [1.2 Create Virtual Network (Optional but Recommended)](#12-create-virtual-network-optional-but-recommended)
+    - [1.3 Create Log Analytics Workspace (Optional but Recommended)](#13-create-log-analytics-workspace-optional-but-recommended)
+  - [🚀 Step 2: Create AKS Cluster](#-step-2-create-aks-cluster)
+    - [2.1 Create AKS Cluster with System Node Pool](#21-create-aks-cluster-with-system-node-pool)
+    - [2.2 Get Cluster Credentials](#22-get-cluster-credentials)
+  - [🎮 Step 3: Add GPU Node Pool](#-step-3-add-gpu-node-pool)
+    - [3.1 Create GPU Node Pool](#31-create-gpu-node-pool)
+    - [3.2 Verify GPU Nodes](#32-verify-gpu-nodes)
+  - [🔧 Step 4: Install NVIDIA GPU Operator](#-step-4-install-nvidia-gpu-operator)
+    - [4.1 Add NVIDIA Helm Repository](#41-add-nvidia-helm-repository)
+    - [4.2 Create GPU Operator Namespace](#42-create-gpu-operator-namespace)
+    - [4.3 Install GPU Operator](#43-install-gpu-operator)
+    - [4.4 Verify GPU Operator Installation](#44-verify-gpu-operator-installation)
+  - [⚡ Step 5: Configure GPU Time-Slicing](#-step-5-configure-gpu-time-slicing)
+    - [5.1 Create Time-Slicing Configuration](#51-create-time-slicing-configuration)
+    - [5.2 Apply Time-Slicing to Cluster Policy](#52-apply-time-slicing-to-cluster-policy)
+    - [5.3 Restart Device Plugin to Apply Configuration](#53-restart-device-plugin-to-apply-configuration)
+  - [🧪 Step 6: Test GPU Time-Slicing](#-step-6-test-gpu-time-slicing)
+    - [6.1 Verify GPU Resources After Time-Slicing](#61-verify-gpu-resources-after-time-slicing)
+    - [6.2 Deploy Test GPU Workload](#62-deploy-test-gpu-workload)
+    - [6.3 Test Multiple GPU Workloads (Time-Slicing)](#63-test-multiple-gpu-workloads-time-slicing)
+  - [📊 Step 7: Monitor and Validate](#-step-7-monitor-and-validate)
+    - [7.1 Check GPU Utilization](#71-check-gpu-utilization)
+    - [7.2 View Time-Slicing Configuration](#72-view-time-slicing-configuration)
+  - [📊 Step 8: GPU Monitoring Setup (Recommended)](#-step-8-gpu-monitoring-setup-recommended)
+    - [8.1 Install Prometheus](#81-install-prometheus)
+    - [8.2 Configure DCGM ServiceMonitor](#82-configure-dcgm-servicemonitor)
+    - [8.3 Install GPU Dashboard](#83-install-gpu-dashboard)
+    - [8.4 Configure GPU Alerts](#84-configure-gpu-alerts)
+    - [8.5 Access Monitoring Dashboards](#85-access-monitoring-dashboards)
+    - [8.6 Verify Monitoring Setup](#86-verify-monitoring-setup)
+  - [🧹 Step 9: Cleanup (Optional)](#-step-9-cleanup-optional)
+    - [9.1 Remove Test Workloads](#91-remove-test-workloads)
+    - [9.2 Scale Down GPU Nodes (Cost Saving)](#92-scale-down-gpu-nodes-cost-saving)
+    - [9.3 Complete Cleanup](#93-complete-cleanup)
+  - [🎯 Key Differences from Terraform Approach](#-key-differences-from-terraform-approach)
+  - [🔧 Troubleshooting Common Issues](#-troubleshooting-common-issues)
+    - [GPU Nodes Not Ready](#gpu-nodes-not-ready)
+    - [Device Plugin Issues](#device-plugin-issues)
+    - [Time-Slicing Not Working](#time-slicing-not-working)
+  - [🎉 Success Criteria](#-success-criteria)
+- [🧹 10. Manual Teardown and Cleanup](#-10-manual-teardown-and-cleanup)
+    - [10.1 Quick Cleanup Commands](#101-quick-cleanup-commands)
+    - [10.2 Step-by-Step Manual Teardown](#102-step-by-step-manual-teardown)
+      - [Step 1: Remove GPU Workloads](#step-1-remove-gpu-workloads)
+      - [Step 2: Uninstall NVIDIA GPU Operator](#step-2-uninstall-nvidia-gpu-operator)
+      - [Step 3: Delete Azure Kubernetes Service](#step-3-delete-azure-kubernetes-service)
+      - [Step 4: Delete Supporting Azure Resources](#step-4-delete-supporting-azure-resources)
+      - [Step 5: Delete Resource Group (Complete Cleanup)](#step-5-delete-resource-group-complete-cleanup)
+    - [10.3 Clean Up Local Configuration](#103-clean-up-local-configuration)
+    - [10.4 Verification and Cost Monitoring](#104-verification-and-cost-monitoring)
+    - [10.5 Automated Cleanup Script](#105-automated-cleanup-script)
+    - [10.6 Cost Monitoring Best Practices](#106-cost-monitoring-best-practices)
+    - [💰 Cost Impact Summary](#-cost-impact-summary)
+  - [�📚 Next Steps](#-next-steps)
+
 ## 🎯 Overview
 
 You'll manually create:
@@ -453,9 +520,236 @@ kubectl get configmap time-slicing-config -n gpu-operator-resources -o yaml
 kubectl get clusterpolicy cluster-policy -o yaml | grep -A 10 devicePlugin
 ```
 
-## 🧹 Step 8: Cleanup (Optional)
+## 📊 Step 8: GPU Monitoring Setup (Recommended)
 
-### 8.1 Remove Test Workloads
+Set up comprehensive GPU monitoring with Prometheus and Grafana to track GPU utilization, time-slicing effectiveness, and performance metrics.
+
+### 8.1 Install Prometheus
+
+```bash
+# Add Prometheus Helm repository
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+# Create monitoring namespace
+kubectl create namespace monitoring
+
+# Install Prometheus with GPU-specific configuration
+helm install prometheus prometheus-community/kube-prometheus-stack \
+    --namespace monitoring \
+    --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+    --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
+    --set grafana.adminPassword=admin123 \
+    --set prometheus.prometheusSpec.retention=7d \
+    --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=10Gi
+
+echo "✅ Prometheus installed"
+```
+
+### 8.2 Configure DCGM ServiceMonitor
+
+```bash
+# Create ServiceMonitor for DCGM metrics
+cat <<EOF | kubectl apply -f -
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dcgm-exporter
+  namespace: monitoring
+  labels:
+    app: dcgm-exporter
+spec:
+  selector:
+    matchLabels:
+      app: nvidia-dcgm-exporter
+  namespaceSelector:
+    matchNames:
+    - gpu-operator-resources
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+EOF
+
+echo "✅ DCGM ServiceMonitor configured"
+```
+
+### 8.3 Install GPU Dashboard
+
+```bash
+# Create GPU monitoring dashboard
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gpu-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  gpu-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "GPU Time-Slicing Monitoring",
+        "tags": ["gpu", "nvidia", "kubernetes"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "GPU Utilization %",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "avg(DCGM_FI_DEV_GPU_UTIL)",
+                "legendFormat": "GPU Utilization"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "GPU Memory Usage",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "avg(DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100)",
+                "legendFormat": "Memory %"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "GPU Temperature",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "DCGM_FI_DEV_GPU_TEMP",
+                "legendFormat": "Temperature °C"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }
+EOF
+
+echo "✅ GPU dashboard created"
+```
+
+### 8.4 Configure GPU Alerts
+
+```bash
+# Create GPU alerting rules
+cat <<EOF | kubectl apply -f -
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: gpu-alerts
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack
+    release: prometheus
+spec:
+  groups:
+  - name: gpu.rules
+    rules:
+    - alert: GPUHighUtilization
+      expr: avg(DCGM_FI_DEV_GPU_UTIL) > 90
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High GPU utilization detected"
+        description: "GPU utilization is above 90% for more than 5 minutes"
+    
+    - alert: GPUHighTemperature
+      expr: max(DCGM_FI_DEV_GPU_TEMP) > 80
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "GPU temperature too high"
+        description: "GPU temperature is above 80°C"
+    
+    - alert: GPUMemoryHigh
+      expr: avg(DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100) > 85
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High GPU memory usage"
+        description: "GPU memory usage is above 85%"
+EOF
+
+echo "✅ GPU alerts configured"
+```
+
+### 8.5 Access Monitoring Dashboards
+
+```bash
+# Get Grafana admin password
+echo "Grafana Password: admin123"
+
+# Port forward to access Grafana
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80 &
+echo "🎯 Grafana: http://localhost:3000 (admin/admin123)"
+
+# Port forward to access Prometheus
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090 &
+echo "🎯 Prometheus: http://localhost:9090"
+
+# Wait for ports to be ready
+sleep 5
+echo "✅ Monitoring dashboards ready!"
+```
+
+### 8.6 Verify Monitoring Setup
+
+```bash
+# Check if DCGM metrics are being collected
+echo "🔍 Checking DCGM metrics availability..."
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090 >/dev/null 2>&1 &
+sleep 3
+
+# Test if GPU metrics are available (requires curl)
+if command -v curl >/dev/null 2>&1; then
+    METRICS_COUNT=$(curl -s "http://localhost:9090/api/v1/query?query=DCGM_FI_DEV_GPU_UTIL" | grep -o '"status":"success"' | wc -l)
+    if [ "$METRICS_COUNT" -gt 0 ]; then
+        echo "✅ GPU metrics are being collected successfully"
+    else
+        echo "⚠️  GPU metrics not yet available - they may take a few minutes to appear"
+    fi
+else
+    echo "ℹ️  Install curl to test metrics availability, or check Grafana dashboard"
+fi
+
+# Show ServiceMonitor status
+kubectl get servicemonitor -n monitoring dcgm-exporter -o wide
+
+# Show dashboard and alerts status
+kubectl get configmap -n monitoring gpu-dashboard
+kubectl get prometheusrule -n monitoring gpu-alerts
+
+echo "🎉 Monitoring setup complete!"
+echo ""
+echo "📊 Next steps:"
+echo "1. Open Grafana at http://localhost:3000"
+echo "2. Import the GPU dashboard"
+echo "3. Check Prometheus targets at http://localhost:9090/targets"
+echo "4. Deploy GPU workloads to see metrics in action"
+```
+
+## 🧹 Step 9: Cleanup (Optional)
+
+### 9.1 Remove Test Workloads
 
 ```bash
 # Clean up test workloads
@@ -463,7 +757,7 @@ kubectl delete job gpu-test-manual
 kubectl delete deployment multi-gpu-test
 ```
 
-### 8.2 Scale Down GPU Nodes (Cost Saving)
+### 9.2 Scale Down GPU Nodes (Cost Saving)
 
 ```bash
 # Scale GPU node pool to 0 when not in use
@@ -481,7 +775,7 @@ az aks nodepool scale \
     --node-count 1
 ```
 
-### 8.3 Complete Cleanup
+### 9.3 Complete Cleanup
 
 ```bash
 # Delete entire resource group (if no longer needed)
@@ -541,11 +835,11 @@ You'll know the setup is successful when:
 -   ✅ GPU Operator pods are all running
 -   ✅ Test workloads complete successfully
 
-## 🧹 Manual Teardown and Cleanup
+# 🧹 10. Manual Teardown and Cleanup
 
 > ⚠️ **IMPORTANT**: This setup creates billable Azure resources. GPU VMs can cost $25-100+ per day if left running!
 
-### 9.1 Quick Cleanup Commands
+### 10.1 Quick Cleanup Commands
 
 ```bash
 # Remove all Kubernetes GPU workloads
@@ -564,7 +858,7 @@ az group delete --name "$RESOURCE_GROUP" --yes --no-wait
 echo "💰 Cleanup initiated - billing will stop soon!"
 ```
 
-### 9.2 Step-by-Step Manual Teardown
+### 10.2 Step-by-Step Manual Teardown
 
 #### Step 1: Remove GPU Workloads
 
@@ -666,7 +960,7 @@ else
 fi
 ```
 
-### 9.3 Clean Up Local Configuration
+### 10.3 Clean Up Local Configuration
 
 ```bash
 # Remove kubectl context
@@ -682,7 +976,7 @@ helm repo remove nvidia
 echo "✅ Local configuration cleaned"
 ```
 
-### 9.4 Verification and Cost Monitoring
+### 10.4 Verification and Cost Monitoring
 
 ```bash
 # Verify resource group is deleted
@@ -700,7 +994,7 @@ echo "� Checking for remaining GPU resources across all subscriptions..."
 az resource list --query "[?contains(type, 'Microsoft.ContainerService') || contains(name, 'gpu') || contains(name, 'nvidia')].{Name:name, Type:type, ResourceGroup:resourceGroup}" --output table
 ```
 
-### 9.5 Automated Cleanup Script
+### 10.5 Automated Cleanup Script
 
 For convenience, you can use the comprehensive cleanup script:
 
@@ -717,7 +1011,7 @@ cd /path/to/aks-gpu-terraform
 ./scripts/cleanup.sh --emergency  # Nuclear option - clean everything
 ```
 
-### 9.6 Cost Monitoring Best Practices
+### 10.6 Cost Monitoring Best Practices
 
 1.  **Set up Azure Budgets**:
     ```bash

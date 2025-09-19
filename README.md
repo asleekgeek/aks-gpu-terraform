@@ -17,22 +17,18 @@ This setup enables:
   - [🎯 Overview](#-overview)
   - [� Table of Contents](#-table-of-contents)
   - [�🚀 Setup Options](#-setup-options)
-    - [**☁️ Azure Cloud Deployment**](#️-azure-cloud-deployment)
-    - [**🤖 Automated Setup (Recommended)**](#-automated-setup-recommended)
-    - [**🔧 Manual Setup**](#-manual-setup)
+    - [**☁️ Azure Deployment**](#️-azure-deployment)
     - [**🏢 On-Premises Deployment**](#-on-premises-deployment)
   - [📋 Prerequisites](#-prerequisites)
     - [Required Tools](#required-tools)
     - [Azure Requirements](#azure-requirements)
     - [Verify Prerequisites](#verify-prerequisites)
   - [🚀 Quick Start](#-quick-start)
-    - [1. Clone and Setup](#1-clone-and-setup)
-    - [2. Azure Authentication](#2-azure-authentication)
-    - [3. Configure Variables](#3-configure-variables)
-    - [4. Deploy Infrastructure](#4-deploy-infrastructure)
-    - [5. Configure kubectl](#5-configure-kubectl)
-    - [6. Deploy NVIDIA GPU Operator](#6-deploy-nvidia-gpu-operator)
-    - [7. Configure GPU Time-Slicing](#7-configure-gpu-time-slicing)
+    - [**⚡ Option A: Azure AKS (Automated)**](#-option-a-azure-aks-automated)
+    - [**⚡ Option B: On-Premises (Existing Cluster)**](#-option-b-on-premises-existing-cluster)
+    - [**🎛️ What You Get**](#️-what-you-get)
+    - [**📚 Detailed Guides**](#-detailed-guides)
+  - [📋 Prerequisites](#-prerequisites-1)
   - [📁 Repository Structure](#-repository-structure)
     - [2. Test GPU Workload](#2-test-gpu-workload)
     - [3. Test Time-Slicing](#3-test-time-slicing)
@@ -63,27 +59,18 @@ This setup enables:
 
 Choose your preferred setup method:
 
-### **☁️ Azure Cloud Deployment**
+Get started quickly with the [**Quick Start**](#quick-start) guide, then choose your detailed deployment method:
 
-### **🤖 Automated Setup (Recommended)**
+### **☁️ Azure Deployment**
 
--   **[Terraform Deployment](#quick-start)** - Fully automated infrastructure as code
--   ⏱️ **Setup time**: 15-20 minutes
--   ✅ **Best for**: Production, reproducible deployments, teams
-
-### **🔧 Manual Setup**
-
--   **[Manual Step-by-Step Guide](MANUAL_SETUP.md)** - Learn every step of the process
--   ⏱️ **Setup time**: 30-45 minutes  
--   ✅ **Best for**: Learning, troubleshooting, understanding the architecture
+-   **[Terraform Setup](#azure-deployment-with-terraform)** - Automated infrastructure deployment
+-   **[Manual Azure Setup](MANUAL_SETUP.md)** - Step-by-step learning guide
 
 ### **🏢 On-Premises Deployment**
 
--   **[On-Premises Setup Guide](ON_PREMISES_SETUP.md)** - Deploy to existing Kubernetes clusters
--   ⏱️ **Setup time**: 20-30 minutes
--   ✅ **Best for**: On-prem infrastructure, existing K8s clusters, edge deployments
+-   **[On-Premises Guide](ON_PREMISES_SETUP.md)** - Deploy to existing Kubernetes clusters
 
-All approaches result in the same GPU time-slicing capabilities using NVIDIA GPU Operator.
+All methods provide the same GPU time-slicing capabilities with NVIDIA GPU Operator and comprehensive monitoring.
 
 ## 📋 Prerequisites
 
@@ -120,80 +107,102 @@ helm version
 
 ## 🚀 Quick Start
 
-### 1. Clone and Setup
+Choose your deployment path and follow the complete process:
+
+### **⚡ Option A: Azure AKS (Automated)**
+
+Complete end-to-end deployment with infrastructure automation:
 
 ```bash
-git clone <your-repo-url>
+# 1. Clone repository
+git clone https://github.com/asleekgeek/aks-gpu-terraform.git
 cd aks-gpu-terraform
-```
 
-### 2. Azure Authentication
-
-```bash
-# Login to Azure
+# 2. Azure authentication
 az login
-
-# Set your subscription
 az account set --subscription "your-subscription-id"
 
-# Verify your account
-az account show
-```
-
-### 3. Configure Variables
-
-```bash
-# Copy the example variables file
+# 3. Configure Terraform variables
 cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+# Edit terraform.tfvars with your settings
 
-# Edit the variables file with your preferred settings
-nano terraform/terraform.tfvars
-```
-
-### 4. Deploy Infrastructure
-
-```bash
-# Initialize Terraform
+# 4. Deploy AKS cluster
 cd terraform
 terraform init
-
-# Plan the deployment
-terraform plan
-
-# Apply the configuration
 terraform apply
-```
 
-### 5. Configure kubectl
-
-```bash
-# Get AKS credentials
+# 5. Configure kubectl
 az aks get-credentials --resource-group $(terraform output -raw resource_group_name) --name $(terraform output -raw cluster_name)
 
-# Verify connection
-kubectl get nodes
-```
-
-### 6. Deploy NVIDIA GPU Operator
-
-```bash
-# Deploy the GPU Operator
+# 6. Deploy GPU Operator
 cd ../scripts
 ./deploy-gpu-operator.sh
 
-# Verify GPU nodes
-kubectl get nodes -l accelerator=nvidia
+# 7. Deploy monitoring stack
+./deploy-monitoring.sh
+
+# 8. Validate deployment
+./validate-setup.sh
+
+# 9. Access monitoring dashboards
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+# Open http://localhost:3000 (admin/admin123)
 ```
 
-### 7. Configure GPU Time-Slicing
+**🎯 Total time: ~20 minutes | Result: Full AKS cluster with GPU time-slicing + monitoring**
+
+### **⚡ Option B: On-Premises (Existing Cluster)**
+
+Deploy to your existing Kubernetes cluster:
 
 ```bash
-# Apply time-slicing configuration
-kubectl apply -f ../kubernetes/gpu-time-slicing-config.yaml
+# 1. Clone repository
+git clone https://github.com/asleekgeek/aks-gpu-terraform.git
+cd aks-gpu-terraform
 
-# Restart the GPU Operator DaemonSet
-kubectl patch daemonset nvidia-device-plugin-daemonset -n gpu-operator-resources -p '{"spec":{"template":{"metadata":{"annotations":{"date":"'$(date +%s)'"}}}}}' || true
+# 2. Label GPU nodes (replace with your node names)
+kubectl label nodes <gpu-node-1> accelerator=nvidia
+kubectl label nodes <gpu-node-2> accelerator=nvidia
+
+# 3. Taint GPU nodes (prevent non-GPU workloads)
+kubectl taint nodes <gpu-node-1> nvidia.com/gpu=true:NoSchedule
+kubectl taint nodes <gpu-node-2> nvidia.com/gpu=true:NoSchedule
+
+# 4. Deploy GPU Operator (on-premises version)
+./scripts/deploy-gpu-operator-onprem.sh
+
+# 5. Deploy monitoring stack
+./scripts/deploy-monitoring.sh
+
+# 6. Validate deployment
+./scripts/validate-setup-onprem.sh
+
+# 7. Access monitoring dashboards
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+# Open http://localhost:3000 (admin/admin123)
 ```
+
+**🎯 Total time: ~15 minutes | Result: GPU time-slicing on your cluster + monitoring**
+
+### **🎛️ What You Get**
+
+Both deployment options provide:
+
+✅ **GPU Time-Slicing** - Share GPUs between multiple workloads  
+✅ **Enterprise Monitoring** - Prometheus + Grafana with custom GPU dashboards  
+✅ **Proactive Alerts** - 15+ GPU health and performance alerts  
+✅ **Cost Optimization** - Track GPU utilization and idle time  
+✅ **Production Ready** - Comprehensive validation and troubleshooting  
+
+### **📚 Detailed Guides**
+
+-   **Azure Deep Dive**: Continue reading this README for detailed Azure setup
+-   **On-Premises Deep Dive**: See [ON_PREMISES_SETUP.md](ON_PREMISES_SETUP.md) for complete on-premises guide
+-   **Manual Setup**: See [MANUAL_SETUP.md](MANUAL_SETUP.md) for step-by-step learning
+
+* * *
+
+## 📋 Prerequisites
 
 ## 📁 Repository Structure
 
