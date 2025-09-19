@@ -109,8 +109,50 @@ dcgmExporter:
   serviceMonitor:
     enabled: true
     interval: 15s
+    scrapeTimeout: 10s
     honorLabels: false
-    additionalLabels: {}
+    additionalLabels:
+      app: gpu-monitoring
+      release: kube-prometheus-stack
+    relabelings:
+      - sourceLabels: [__meta_kubernetes_pod_node_name]
+        targetLabel: node
+      - sourceLabels: [__meta_kubernetes_pod_name]
+        targetLabel: pod
+    metricRelabelings:
+      - sourceLabels: [__name__]
+        regex: 'DCGM_FI_DEV_.*'
+        targetLabel: __tmp_dcgm_metric
+      - sourceLabels: [__tmp_dcgm_metric]
+        targetLabel: dcgm_metric
+        
+  # Service configuration
+  service:
+    enable: true
+    port: 9400
+    type: ClusterIP
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9400"
+      prometheus.io/path: "/metrics"
+    
+  # Resources for DCGM Exporter
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+      
+  # Configuration for DCGM Exporter
+  config:
+    # Collect comprehensive GPU metrics
+    collectors: "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15"
+    # Collection interval in milliseconds
+    updateFrequency: 10000
+    # Maximum metrics age in seconds
+    maxAge: 3600
     
   # Node selector for GPU nodes
   nodeSelector:

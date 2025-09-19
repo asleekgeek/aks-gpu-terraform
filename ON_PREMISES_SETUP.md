@@ -647,17 +647,114 @@ kubectl describe nodes -l accelerator=nvidia | grep nvidia.com/gpu
 kubectl get pods -n gpu-operator-resources -w
 ```
 
-### Advanced Monitoring (Optional)
+### Advanced Monitoring with Prometheus & Grafana
 
-The GPU Operator includes DCGM Exporter for Prometheus integration:
+For comprehensive GPU monitoring on on-premises clusters, you can deploy the same monitoring stack used in AKS:
+
+#### Option 1: Using AKS Monitoring Scripts (Adapted)
+
+If you have Helm installed, you can adapt the AKS monitoring deployment:
 
 ```bash
-# Check DCGM Exporter
+# Download and modify the monitoring script
+curl -O https://raw.githubusercontent.com/your-repo/aks-gpu-terraform/main/scripts/deploy-monitoring.sh
+
+# Make executable
+chmod +x deploy-monitoring.sh
+
+# Deploy monitoring stack (ensure you have Helm 3.x)
+./deploy-monitoring.sh
+```
+
+#### Option 2: Manual Monitoring Deployment
+
+1.  **Add Prometheus Helm Repository**:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+```
+
+2.  **Create Monitoring Namespace**:
+
+```bash
+kubectl create namespace monitoring
+```
+
+3.  **Deploy Prometheus Stack**:
+
+```bash
+helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+  --set grafana.adminPassword=admin123 \
+  --wait
+```
+
+4.  **Deploy GPU Alerts** (if you have the alerts file):
+
+```bash
+# Apply GPU-specific alerts
+kubectl apply -f https://raw.githubusercontent.com/your-repo/aks-gpu-terraform/main/kubernetes/monitoring/gpu-alerts.yaml
+```
+
+#### Accessing Monitoring Dashboards
+
+```bash
+# Access Grafana
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+
+# Access Prometheus
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+
+# Default Grafana credentials: admin / admin123
+```
+
+#### Import Custom GPU Dashboard
+
+1.  Open Grafana at http&#x3A;//localhost:3000
+2.  Login with admin/admin123
+3.  Go to "+" → Import
+4.  Upload the GPU dashboard JSON from `kubernetes/monitoring/gpu-dashboard.json`
+
+### DCGM Metrics Collection
+
+The NVIDIA GPU Operator automatically deploys DCGM Exporter for metrics collection:
+
+```bash
+# Check DCGM Exporter status
 kubectl get pods -n gpu-operator-resources | grep dcgm
 
-# View GPU metrics endpoint
+# View GPU metrics
 kubectl port-forward -n gpu-operator-resources svc/nvidia-dcgm-exporter 9400:9400
-curl localhost:9400/metrics | grep DCGM
+curl localhost:9400/metrics | grep DCGM_FI_DEV
+
+# Key metrics available:
+# - DCGM_FI_DEV_GPU_UTIL: GPU utilization %
+# - DCGM_FI_DEV_GPU_TEMP: GPU temperature
+# - DCGM_FI_DEV_FB_USED: GPU memory used
+# - DCGM_FI_DEV_POWER_USAGE: Power consumption
+```
+
+### Monitoring Best Practices for On-Premises
+
+1.  **Resource Monitoring**: Set up alerts for GPU temperature (>80°C) and utilization
+2.  **Time-Slicing Efficiency**: Monitor pod density per GPU node
+3.  **Cost Tracking**: Track power consumption and compute utilization
+4.  **Performance Baselines**: Establish normal operating ranges for your workloads
+
+### Troubleshooting Monitoring Issues
+
+```bash
+# Check ServiceMonitor configuration
+kubectl get servicemonitor -n gpu-operator-resources
+
+# Verify Prometheus targets
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+# Open http://localhost:9090/targets
+
+# Check DCGM Exporter logs
+kubectl logs -n gpu-operator-resources -l app=nvidia-dcgm-exporter
 ```
 
 ## 🔗 Integration with AKS Codebase

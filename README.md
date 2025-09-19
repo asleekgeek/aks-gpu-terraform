@@ -13,48 +13,51 @@ This setup enables:
 
 ## � Table of Contents
 
--   [🎯 Overview](#-overview)
--   [📋 Table of Contents](#-table-of-contents)
--   [🚀 Setup Options](#-setup-options)
-    -   [☁️ Azure Cloud Deployment](#️-azure-cloud-deployment)
-    -   [🏢 On-Premises Deployment](#-on-premises-deployment)
--   [📋 Prerequisites](#-prerequisites)
-    -   [Required Tools](#required-tools)
-    -   [Azure Requirements](#azure-requirements)
-    -   [Verify Prerequisites](#verify-prerequisites)
--   [🚀 Quick Start](#-quick-start)
-    -   [1. Clone and Setup](#1-clone-and-setup)
-    -   [2. Azure Authentication](#2-azure-authentication)
-    -   [3. Configure Variables](#3-configure-variables)
-    -   [4. Deploy Infrastructure](#4-deploy-infrastructure)
-    -   [5. Configure kubectl](#5-configure-kubectl)
-    -   [6. Deploy NVIDIA GPU Operator](#6-deploy-nvidia-gpu-operator)
-    -   [7. Configure GPU Time-Slicing](#7-configure-gpu-time-slicing)
--   [📁 Repository Structure](#-repository-structure)
--   [⚙️ Configuration Options](#️-configuration-options)
-    -   [Terraform Variables](#terraform-variables)
-    -   [GPU Time-Slicing Configuration](#gpu-time-slicing-configuration)
--   [🧪 Testing and Validation](#-testing-and-validation)
-    -   [1. Verify GPU Availability](#1-verify-gpu-availability)
-    -   [2. Test GPU Workload](#2-test-gpu-workload)
-    -   [3. Test Time-Slicing](#3-test-time-slicing)
-    -   [4. Run Validation Script](#4-run-validation-script)
--   [🔧 Troubleshooting](#-troubleshooting)
-    -   [Common Issues](#common-issues)
-    -   [Logs and Debugging](#logs-and-debugging)
--   [💰 Cost Management & Cleanup](#-cost-management--cleanup)
-    -   [Quick Cleanup](#quick-cleanup)
-    -   [GPU VM Pricing](#gpu-vm-pricing)
-    -   [Cost Optimization Tips](#cost-optimization-tips)
--   [🧹 Cleanup Options](#-cleanup-options)
--   [🔒 Security Considerations](#-security-considerations)
--   [📚 Additional Resources](#-additional-resources)
-    -   [Setup & Teardown Guides](#setup--teardown-guides)
-    -   [External Documentation](#external-documentation)
--   [🔄 Setup Method Comparison](#-setup-method-comparison)
--   [🤝 Contributing](#-contributing)
--   [📄 License](#-license)
--   [🆘 Support](#-support)
+- [Azure Kubernetes Service (AKS) with GPU Time-Slicing using NVIDIA GPU Operator](#azure-kubernetes-service-aks-with-gpu-time-slicing-using-nvidia-gpu-operator)
+  - [🎯 Overview](#-overview)
+  - [� Table of Contents](#-table-of-contents)
+  - [�🚀 Setup Options](#-setup-options)
+    - [**☁️ Azure Cloud Deployment**](#️-azure-cloud-deployment)
+    - [**🤖 Automated Setup (Recommended)**](#-automated-setup-recommended)
+    - [**🔧 Manual Setup**](#-manual-setup)
+    - [**🏢 On-Premises Deployment**](#-on-premises-deployment)
+  - [📋 Prerequisites](#-prerequisites)
+    - [Required Tools](#required-tools)
+    - [Azure Requirements](#azure-requirements)
+    - [Verify Prerequisites](#verify-prerequisites)
+  - [🚀 Quick Start](#-quick-start)
+    - [1. Clone and Setup](#1-clone-and-setup)
+    - [2. Azure Authentication](#2-azure-authentication)
+    - [3. Configure Variables](#3-configure-variables)
+    - [4. Deploy Infrastructure](#4-deploy-infrastructure)
+    - [5. Configure kubectl](#5-configure-kubectl)
+    - [6. Deploy NVIDIA GPU Operator](#6-deploy-nvidia-gpu-operator)
+    - [7. Configure GPU Time-Slicing](#7-configure-gpu-time-slicing)
+  - [📁 Repository Structure](#-repository-structure)
+    - [2. Test GPU Workload](#2-test-gpu-workload)
+    - [3. Test Time-Slicing](#3-test-time-slicing)
+    - [4. Run Validation Script](#4-run-validation-script)
+  - [� Monitoring and Observability](#-monitoring-and-observability)
+    - [Deploy Monitoring Stack](#deploy-monitoring-stack)
+    - [Access Dashboards](#access-dashboards)
+    - [GPU Metrics and Alerts](#gpu-metrics-and-alerts)
+    - [Troubleshooting Monitoring](#troubleshooting-monitoring)
+  - [�🔧 Troubleshooting](#-troubleshooting)
+    - [Common Issues](#common-issues)
+    - [Logs and Debugging](#logs-and-debugging)
+  - [💰 Cost Management \& Cleanup](#-cost-management--cleanup)
+    - [Quick Cleanup](#quick-cleanup)
+    - [GPU VM Pricing](#gpu-vm-pricing)
+    - [Cost Optimization Tips](#cost-optimization-tips)
+  - [🧹 Cleanup Options](#-cleanup-options)
+  - [🔒 Security Considerations](#-security-considerations)
+  - [📚 Additional Resources](#-additional-resources)
+    - [**Setup \& Teardown Guides**](#setup--teardown-guides)
+    - [**External Documentation**](#external-documentation)
+  - [🔄 Setup Method Comparison](#-setup-method-comparison)
+  - [🤝 Contributing](#-contributing)
+  - [📄 License](#-license)
+  - [🆘 Support](#-support)
 
 ## �🚀 Setup Options
 
@@ -211,6 +214,9 @@ kubectl patch daemonset nvidia-device-plugin-daemonset -n gpu-operator-resources
         ├── kubernetes/                        # Kubernetes manifests (all deployments)
         │   ├── gpu-operator-values.yaml       # Helm values for GPU Operator
         │   ├── gpu-time-slicing-config.yaml   # Time-slicing configuration
+        │   ├── monitoring/                     # Monitoring and observability
+        │   │   ├── gpu-dashboard.json          # Custom Grafana GPU dashboard
+        │   │   └── gpu-alerts.yaml             # PrometheusRule for GPU alerts
         │   └── examples/                      # Example workloads
         │       ├── gpu-test-job.yaml          # Simple GPU test (Azure)
         │       ├── multi-gpu-workload.yaml    # Multi-container GPU sharing (Azure)
@@ -219,7 +225,8 @@ kubectl patch daemonset nvidia-device-plugin-daemonset -n gpu-operator-resources
         └── scripts/                           # Deployment scripts
             ├── deploy-gpu-operator.sh          # GPU Operator deployment (Azure)
             ├── deploy-gpu-operator-onprem.sh   # GPU Operator deployment (on-premises)
-            ├── validate-setup.sh               # Validation script
+            ├── deploy-monitoring.sh            # Monitoring stack deployment (Prometheus/Grafana)
+            ├── validate-setup.sh               # Validation script (includes monitoring checks)
             ├── validate-setup-onprem.sh        # On-premises validation script
             └── cleanup.sh                      # Cleanup script (Azure)
 
@@ -285,7 +292,101 @@ kubectl get pods -o wide
 ./scripts/validate-setup.sh
 ```
 
-## 🔧 Troubleshooting
+## � Monitoring and Observability
+
+Monitor your GPU workloads and cluster health with Prometheus, Grafana, and DCGM Exporter.
+
+### Deploy Monitoring Stack
+
+Deploy a complete monitoring solution for GPU time-slicing workloads:
+
+```bash
+# Deploy Prometheus, Grafana, and GPU monitoring
+./scripts/deploy-monitoring.sh
+
+# Check deployment status
+kubectl get pods -n monitoring
+```
+
+**What gets deployed:**
+
+-   **Prometheus** - Metrics collection and storage
+-   **Grafana** - Visualization dashboards  
+-   **DCGM Exporter** - NVIDIA GPU metrics collection
+-   **Custom GPU Dashboard** - Pre-configured GPU monitoring
+-   **GPU Alerts** - Proactive notifications for GPU issues
+
+### Access Dashboards
+
+```bash
+# Access Grafana (default: admin/prom-operator)
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+
+# Access Prometheus
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+
+# Open dashboards
+open http://localhost:3000  # Grafana
+open http://localhost:9090  # Prometheus
+```
+
+**Pre-configured Dashboards:**
+
+-   **GPU Overview** - Multi-GPU cluster view
+-   **GPU Utilization** - Real-time GPU usage metrics
+-   **GPU Time-Slicing Efficiency** - Pod density and sharing metrics
+-   **GPU Health** - Temperature, power, and memory monitoring
+
+### GPU Metrics and Alerts
+
+**Key GPU Metrics Available:**
+
+```bash
+# View raw GPU metrics
+kubectl port-forward -n gpu-operator-resources svc/nvidia-dcgm-exporter 9400:9400
+curl http://localhost:9400/metrics | grep DCGM_FI_DEV
+```
+
+**Critical Metrics:**
+
+-   `DCGM_FI_DEV_GPU_UTIL` - GPU utilization percentage
+-   `DCGM_FI_DEV_GPU_TEMP` - GPU temperature (Celsius)
+-   `DCGM_FI_DEV_FB_USED` - GPU memory usage (MB)
+-   `DCGM_FI_DEV_POWER_USAGE` - Power consumption (Watts)
+
+**Automated Alerts:**
+
+-   🔥 **High Temperature** (>80°C) - Critical GPU thermal alerts
+-   ⚡ **High Utilization** (>90%) - Performance bottleneck warnings
+-   💾 **Memory Pressure** (>85%) - GPU memory exhaustion alerts
+-   🔋 **Power Consumption** (>300W) - Power efficiency monitoring
+-   📊 **Time-Slicing Efficiency** - Under/over-utilization alerts
+
+### Troubleshooting Monitoring
+
+```bash
+# Check DCGM Exporter status
+kubectl get pods -n gpu-operator-resources | grep dcgm
+
+# Verify metrics collection
+kubectl logs -n gpu-operator-resources -l app=nvidia-dcgm-exporter
+
+# Check Prometheus targets
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+# Navigate to Status -> Targets in Prometheus UI
+
+# Restart DCGM Exporter if needed
+kubectl delete pods -n gpu-operator-resources -l app=nvidia-dcgm-exporter
+```
+
+**Dashboard Import:**
+If you need to manually import the GPU dashboard:
+
+1.  Download `kubernetes/monitoring/gpu-dashboard.json`
+2.  In Grafana: + → Import → Upload JSON file
+3.  Configure Prometheus datasource if prompted
+
+## �🔧 Troubleshooting
 
 ### Common Issues
 

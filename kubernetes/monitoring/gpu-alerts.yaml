@@ -1,0 +1,226 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: gpu-monitoring-rules
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack
+    release: kube-prometheus-stack
+spec:
+  groups:
+  - name: gpu.rules
+    interval: 30s
+    rules:
+    # GPU Utilization Alerts
+    - alert: GPUHighUtilization
+      expr: DCGM_FI_DEV_GPU_UTIL > 90
+      for: 5m
+      labels:
+        severity: warning
+        component: gpu
+        node: "{{ $labels.exported_instance }}"
+      annotations:
+        summary: "GPU utilization is critically high"
+        description: "GPU utilization on {{ $labels.exported_instance }} GPU {{ $labels.gpu }} is {{ $value }}% for more than 5 minutes"
+        runbook_url: "https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/troubleshooting.html"
+
+    - alert: GPULowUtilization
+      expr: DCGM_FI_DEV_GPU_UTIL < 10
+      for: 15m
+      labels:
+        severity: info
+        component: gpu
+        node: "{{ $labels.exported_instance }}"
+      annotations:
+        summary: "GPU utilization is very low"
+        description: "GPU utilization on {{ $labels.exported_instance }} GPU {{ $labels.gpu }} is {{ $value }}% for more than 15 minutes. Consider scaling down or optimizing workloads."
+
+    # GPU Temperature Alerts
+    - alert: GPUHighTemperature
+      expr: DCGM_FI_DEV_GPU_TEMP > 80
+      for: 2m
+      labels:
+        severity: critical
+        component: gpu
+        node: "{{ $labels.exported_instance }}"
+      annotations:
+        summary: "GPU temperature is critically high"
+        description: "GPU temperature on {{ $labels.exported_instance }} GPU {{ $labels.gpu }} is {{ $value }}°C, exceeding safe operating temperature"
+        runbook_url: "https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/troubleshooting.html#gpu-thermal-issues"
+
+    - alert: GPUModerateTemperature
+      expr: DCGM_FI_DEV_GPU_TEMP > 70
+      for: 5m
+      labels:
+        severity: warning
+        component: gpu
+        node: "{{ $labels.exported_instance }}"
+      annotations:
+        summary: "GPU temperature is elevated"
+        description: "GPU temperature on {{ $labels.exported_instance }} GPU {{ $labels.gpu }} is {{ $value }}°C for more than 5 minutes"
+
+    # GPU Memory Alerts
+    - alert: GPUHighMemoryUsage
+      expr: (DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL) * 100 > 85
+      for: 10m
+      labels:
+        severity: warning
+        component: gpu
+        node: "{{ $labels.exported_instance }}"
+      annotations:
+        summary: "GPU memory usage is high"
+        description: "GPU memory usage on {{ $labels.exported_instance }} GPU {{ $labels.gpu }} is {{ $value }}% for more than 10 minutes"
+
+    - alert: GPUMemoryFragmentation
+      expr: DCGM_FI_DEV_FB_USED > 0 and (DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL) * 100 < 50
+      for: 30m
+      labels:
+        severity: info
+        component: gpu
+        node: "{{ $labels.exported_instance }}"
+      annotations:
+        summary: "Potential GPU memory fragmentation"
+        description: "GPU {{ $labels.gpu }} on {{ $labels.exported_instance }} shows signs of memory fragmentation with {{ $value }}MB used but low percentage utilization"
+
+    # GPU Power Alerts
+    - alert: GPUHighPowerUsage
+      expr: DCGM_FI_DEV_POWER_USAGE > 300
+      for: 10m
+      labels:
+        severity: warning
+        component: gpu
+        node: "{{ $labels.exported_instance }}"
+      annotations:
+        summary: "GPU power consumption is high"
+        description: "GPU power usage on {{ $labels.exported_instance }} GPU {{ $labels.gpu }} is {{ $value }}W for more than 10 minutes"
+
+    # Node-Level Alerts
+    - alert: GPUNodeDown
+      expr: up{job="node-exporter", instance=~".*gpu.*"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        component: node
+        node: "{{ $labels.instance }}"
+      annotations:
+        summary: "GPU node is down"
+        description: "GPU node {{ $labels.instance }} is not responding for more than 1 minute"
+        runbook_url: "https://kubernetes.io/docs/tasks/debug-application-cluster/debug-cluster/"
+
+    - alert: GPUNodeHighCPU
+      expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle", instance=~".*gpu.*"}[5m])) * 100) > 80
+      for: 10m
+      labels:
+        severity: warning
+        component: node
+        node: "{{ $labels.instance }}"
+      annotations:
+        summary: "GPU node CPU usage is high"
+        description: "CPU usage on GPU node {{ $labels.instance }} is {{ $value }}% for more than 10 minutes"
+
+    - alert: GPUNodeHighMemory
+      expr: (1 - (node_memory_MemAvailable_bytes{instance=~".*gpu.*"} / node_memory_MemTotal_bytes{instance=~".*gpu.*"})) * 100 > 90
+      for: 5m
+      labels:
+        severity: warning
+        component: node
+        node: "{{ $labels.instance }}"
+      annotations:
+        summary: "GPU node memory usage is high"
+        description: "Memory usage on GPU node {{ $labels.instance }} is {{ $value }}% for more than 5 minutes"
+
+    # Time-Slicing Specific Alerts
+    - alert: LowTimeSlicingEfficiency
+      expr: count by (node) (kube_pod_info{node=~".*gpu.*", created_by_kind!="DaemonSet"}) < 2
+      for: 10m
+      labels:
+        severity: warning
+        component: time-slicing
+        node: "{{ $labels.node }}"
+      annotations:
+        summary: "GPU time-slicing underutilized"
+        description: "GPU node {{ $labels.node }} has less than 2 pods running for more than 10 minutes. Time-slicing efficiency is low."
+
+    - alert: HighTimeSlicingDensity
+      expr: count by (node) (kube_pod_info{node=~".*gpu.*", created_by_kind!="DaemonSet"}) > 8
+      for: 5m
+      labels:
+        severity: info
+        component: time-slicing
+        node: "{{ $labels.node }}"
+      annotations:
+        summary: "High GPU time-slicing density"
+        description: "GPU node {{ $labels.node }} has {{ $value }} pods running. Monitor for performance degradation."
+
+    # GPU Operator Health Alerts
+    - alert: GPUOperatorPodDown
+      expr: up{job="kubernetes-pods", namespace="gpu-operator-resources"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        component: gpu-operator
+        namespace: gpu-operator-resources
+      annotations:
+        summary: "GPU Operator component is down"
+        description: "GPU Operator pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is down for more than 2 minutes"
+
+    - alert: DCGMExporterDown
+      expr: up{job="kubernetes-service-endpoints", service="nvidia-dcgm-exporter"} == 0
+      for: 2m
+      labels:
+        severity: warning
+        component: dcgm-exporter
+      annotations:
+        summary: "DCGM Exporter is down"
+        description: "DCGM Exporter service is not responding. GPU metrics collection is affected."
+
+    # Device Plugin Alerts
+    - alert: NVIDIADevicePluginRestart
+      expr: increase(kube_pod_container_status_restarts_total{namespace="gpu-operator-resources", container="nvidia-device-plugin"}[1h]) > 0
+      for: 0m
+      labels:
+        severity: warning
+        component: device-plugin
+      annotations:
+        summary: "NVIDIA Device Plugin restarted"
+        description: "NVIDIA Device Plugin container has restarted {{ $value }} times in the last hour"
+
+    # Cost Optimization Alerts
+    - alert: GPUNodeIdleCost
+      expr: (DCGM_FI_DEV_GPU_UTIL < 5 and on(exported_instance) (count by (exported_instance) (kube_pod_info{node=~".*gpu.*", created_by_kind!="DaemonSet"}) == 0))
+      for: 30m
+      labels:
+        severity: info
+        component: cost-optimization
+        node: "{{ $labels.exported_instance }}"
+      annotations:
+        summary: "GPU node generating cost without utilization"
+        description: "GPU node {{ $labels.exported_instance }} has been idle (< 5% utilization, no workload pods) for more than 30 minutes. Consider scaling down to reduce costs."
+
+  - name: gpu-recording.rules
+    interval: 30s
+    rules:
+    # Recording rules for better performance and aggregation
+    - record: gpu:utilization:avg5m
+      expr: avg_over_time(DCGM_FI_DEV_GPU_UTIL[5m])
+
+    - record: gpu:memory:usage_percent
+      expr: (DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL) * 100
+
+    - record: gpu:temperature:max5m
+      expr: max_over_time(DCGM_FI_DEV_GPU_TEMP[5m])
+
+    - record: gpu:power:avg5m
+      expr: avg_over_time(DCGM_FI_DEV_POWER_USAGE[5m])
+
+    - record: node:gpu_pods:count
+      expr: count by (node) (kube_pod_info{node=~".*gpu.*", created_by_kind!="DaemonSet"})
+
+    - record: cluster:gpu:total_count
+      expr: count(DCGM_FI_DEV_GPU_UTIL)
+
+    - record: cluster:gpu:avg_utilization
+      expr: avg(DCGM_FI_DEV_GPU_UTIL)
+
+    - record: cluster:gpu:total_memory_gb
+      expr: sum(DCGM_FI_DEV_FB_TOTAL) / 1024 / 1024 / 1024

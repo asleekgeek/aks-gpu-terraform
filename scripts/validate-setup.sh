@@ -293,6 +293,115 @@ EOF
     fi
 }
 
+# Test 9: Check monitoring infrastructure (if deployed)
+test_monitoring_stack() {
+    log_info "Checking monitoring infrastructure..."
+    
+    # Check if monitoring namespace exists
+    if ! kubectl get namespace monitoring &> /dev/null; then
+        log_warning "Monitoring namespace not found - monitoring stack may not be deployed"
+        return 0  # This is optional, so we don't fail
+    fi
+    
+    local monitoring_working=true
+    
+    # Check Prometheus
+    local prometheus_pods
+    prometheus_pods=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus --no-headers 2>/dev/null | grep Running | wc -l)
+    
+    if [ "$prometheus_pods" -gt 0 ]; then
+        log_info "Prometheus running: $prometheus_pods pod(s)"
+    else
+        log_warning "Prometheus not running"
+        monitoring_working=false
+    fi
+    
+    # Check Grafana
+    local grafana_pods
+    grafana_pods=$(kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana --no-headers 2>/dev/null | grep Running | wc -l)
+    
+    if [ "$grafana_pods" -gt 0 ]; then
+        log_info "Grafana running: $grafana_pods pod(s)"
+    else
+        log_warning "Grafana not running"
+        monitoring_working=false
+    fi
+    
+    # Check DCGM Exporter
+    local dcgm_pods
+    dcgm_pods=$(kubectl get pods -n gpu-operator-resources -l app=nvidia-dcgm-exporter --no-headers 2>/dev/null | grep Running | wc -l)
+    
+    if [ "$dcgm_pods" -gt 0 ]; then
+        log_info "DCGM Exporter running: $dcgm_pods pod(s)"
+    else
+        log_warning "DCGM Exporter not running"
+        monitoring_working=false
+    fi
+    
+    # Check ServiceMonitor for DCGM
+    if kubectl get servicemonitor nvidia-dcgm-exporter -n gpu-operator-resources &> /dev/null; then
+        log_info "DCGM ServiceMonitor configured"
+    else
+        log_warning "DCGM ServiceMonitor not found"
+        monitoring_working=false
+    fi
+    
+    # Check GPU alerts PrometheusRule
+    if kubectl get prometheusrule gpu-monitoring-rules -n monitoring &> /dev/null; then
+        log_info "GPU monitoring alerts configured"
+    else
+        log_warning "GPU monitoring alerts not found"
+        monitoring_working=false
+    fi
+    
+    if $monitoring_working; then
+        log_success "Monitoring stack is healthy"
+        return 0
+    else
+        log_warning "Some monitoring components are missing or not working"
+        return 0  # Don't fail the overall validation for monitoring issues
+    fi
+}
+
+# Test 10: Validate DCGM metrics availability
+test_dcgm_metrics() {
+    log_info "Testing DCGM metrics collection..."
+    
+    # Check if DCGM Exporter service exists
+    if ! kubectl get service nvidia-dcgm-exporter -n gpu-operator-resources &> /dev/null; then
+        log_warning "DCGM Exporter service not found - skipping metrics test"
+        return 0
+    fi
+    
+    # Port forward to DCGM Exporter (in background)
+    kubectl port-forward -n gpu-operator-resources service/nvidia-dcgm-exporter 9400:9400 &
+    local port_forward_pid=$!
+    
+    # Give port forward time to establish
+    sleep 5
+    
+    # Test metrics endpoint
+    if curl -s http://localhost:9400/metrics | grep -q "DCGM_FI_DEV"; then
+        log_info "DCGM metrics are being collected successfully"
+        
+        # Show sample metrics
+        local gpu_util_metrics
+        gpu_util_metrics=$(curl -s http://localhost:9400/metrics | grep "DCGM_FI_DEV_GPU_UTIL" | head -3)
+        if [ -n "$gpu_util_metrics" ]; then
+            log_info "Sample GPU utilization metrics:"
+            echo "$gpu_util_metrics"
+        fi
+        
+        # Clean up port forward
+        kill $port_forward_pid 2>/dev/null || true
+        return 0
+    else
+        log_warning "Could not retrieve DCGM metrics"
+        kill $port_forward_pid 2>/dev/null || true
+        return 0  # Don't fail validation for this
+    fi
+}
+
 # Show cluster summary
 show_cluster_summary() {
     echo
@@ -335,6 +444,8 @@ main() {
     run_test "Time-slicing Configuration" test_time_slicing_config
     run_test "GPU Workload Execution" test_gpu_workload
     run_test "Time-slicing Functionality" test_time_slicing_functionality
+    run_test "Monitoring Stack (Optional)" test_monitoring_stack
+    run_test "DCGM Metrics (Optional)" test_dcgm_metrics
     
     # Show summary
     echo
@@ -354,6 +465,15 @@ main() {
         echo "3. Check GPU metrics with DCGM Exporter"
         echo "4. Test different time-slicing configurations as needed"
         
+        # Show monitoring access info if available
+        if kubectl get namespace monitoring &> /dev/null; then
+            echo
+            log_info "=== MONITORING ACCESS ==="
+            echo "Grafana Dashboard: kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80"
+            echo "Prometheus UI: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
+            echo "Default Grafana credentials: admin / prom-operator"
+        fi
+        
         exit 0
     else
         log_error "Some validation tests failed! ✗"
@@ -363,6 +483,7 @@ main() {
         echo "2. Verify time-slicing configuration"
         echo "3. Check pod logs for more details"
         echo "4. Run './deploy-gpu-operator.sh' if needed"
+        echo "5. Deploy monitoring with './deploy-monitoring.sh' (optional)"
         
         exit 1
     fi

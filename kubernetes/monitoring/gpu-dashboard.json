@@ -1,0 +1,441 @@
+{
+    "dashboard": {
+        "id": null,
+        "title": "AKS GPU Time-Slicing Monitoring",
+        "tags": [ "gpu", "aks", "nvidia", "time-slicing" ],
+        "style": "dark",
+        "timezone": "browser",
+        "time": {
+            "from": "now-1h",
+            "to": "now"
+        },
+        "refresh": "30s",
+        "version": 1,
+        "panels": [
+            {
+                "id": 1,
+                "title": "GPU Nodes Overview",
+                "type": "stat",
+                "gridPos": {
+                    "h": 8,
+                    "w": 6,
+                    "x": 0,
+                    "y": 0
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "thresholds"
+                        },
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 1
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 3
+                                }
+                            ]
+                        },
+                        "unit": "short"
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "count(up{job=\"node-exporter\", instance=~\".*gpu.*\"})",
+                        "legendFormat": "Total GPU Nodes",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "count(up{job=\"node-exporter\", instance=~\".*gpu.*\"} == 1)",
+                        "legendFormat": "Online GPU Nodes",
+                        "refId": "B"
+                    }
+                ]
+            },
+            {
+                "id": 2,
+                "title": "GPU Utilization by Node",
+                "type": "timeseries",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 6,
+                    "y": 0
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "palette-classic"
+                        },
+                        "unit": "percent",
+                        "min": 0,
+                        "max": 100
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "DCGM_FI_DEV_GPU_UTIL",
+                        "legendFormat": "{{exported_instance}} GPU {{gpu}}",
+                        "refId": "A"
+                    }
+                ]
+            },
+            {
+                "id": 3,
+                "title": "GPU Memory Usage",
+                "type": "timeseries",
+                "gridPos": {
+                    "h": 8,
+                    "w": 6,
+                    "x": 18,
+                    "y": 0
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "palette-classic"
+                        },
+                        "unit": "percent",
+                        "min": 0,
+                        "max": 100
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100",
+                        "legendFormat": "{{exported_instance}} GPU {{gpu}} Memory",
+                        "refId": "A"
+                    }
+                ]
+            },
+            {
+                "id": 4,
+                "title": "Time-Slicing Efficiency",
+                "type": "stat",
+                "gridPos": {
+                    "h": 8,
+                    "w": 8,
+                    "x": 0,
+                    "y": 8
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "thresholds"
+                        },
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 2
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 4
+                                }
+                            ]
+                        },
+                        "unit": "short"
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "count by (node) (kube_pod_info{node=~\".*gpu.*\", created_by_kind!=\"DaemonSet\"})",
+                        "legendFormat": "{{node}} Pods",
+                        "refId": "A"
+                    }
+                ]
+            },
+            {
+                "id": 5,
+                "title": "GPU Temperature",
+                "type": "gauge",
+                "gridPos": {
+                    "h": 8,
+                    "w": 8,
+                    "x": 8,
+                    "y": 8
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "thresholds"
+                        },
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 70
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 85
+                                }
+                            ]
+                        },
+                        "unit": "celsius",
+                        "min": 0,
+                        "max": 100
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "DCGM_FI_DEV_GPU_TEMP",
+                        "legendFormat": "{{exported_instance}} GPU {{gpu}}",
+                        "refId": "A"
+                    }
+                ]
+            },
+            {
+                "id": 6,
+                "title": "GPU Power Usage",
+                "type": "timeseries",
+                "gridPos": {
+                    "h": 8,
+                    "w": 8,
+                    "x": 16,
+                    "y": 8
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "palette-classic"
+                        },
+                        "unit": "watt"
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "DCGM_FI_DEV_POWER_USAGE",
+                        "legendFormat": "{{exported_instance}} GPU {{gpu}}",
+                        "refId": "A"
+                    }
+                ]
+            },
+            {
+                "id": 7,
+                "title": "GPU Workload Distribution",
+                "type": "piechart",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 16
+                },
+                "targets": [
+                    {
+                        "expr": "count by (node) (kube_pod_info{node=~\".*gpu.*\", created_by_kind!=\"DaemonSet\"})",
+                        "legendFormat": "{{node}}",
+                        "refId": "A"
+                    }
+                ]
+            },
+            {
+                "id": 8,
+                "title": "GPU Resource Requests vs Available",
+                "type": "bargauge",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 16
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "thresholds"
+                        },
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 0.7
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 0.9
+                                }
+                            ]
+                        },
+                        "unit": "short",
+                        "min": 0
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "kube_node_status_allocatable{resource=\"nvidia_com_gpu\"}",
+                        "legendFormat": "{{node}} Available",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "kube_node_status_allocatable{resource=\"nvidia_com_gpu\"} - kube_node_status_capacity{resource=\"nvidia_com_gpu\"} + on(node) group_left() (count by (node) (kube_pod_info{node=~\".*gpu.*\"}) or vector(0))",
+                        "legendFormat": "{{node}} Requested",
+                        "refId": "B"
+                    }
+                ]
+            },
+            {
+                "id": 9,
+                "title": "Network I/O (GPU Nodes)",
+                "type": "timeseries",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 24
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "palette-classic"
+                        },
+                        "unit": "Bps"
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "rate(node_network_receive_bytes_total{instance=~\".*gpu.*\", device!=\"lo\"}[5m])",
+                        "legendFormat": "{{instance}} {{device}} RX",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "rate(node_network_transmit_bytes_total{instance=~\".*gpu.*\", device!=\"lo\"}[5m])",
+                        "legendFormat": "{{instance}} {{device}} TX",
+                        "refId": "B"
+                    }
+                ]
+            },
+            {
+                "id": 10,
+                "title": "Disk I/O (GPU Nodes)",
+                "type": "timeseries",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 24
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "palette-classic"
+                        },
+                        "unit": "Bps"
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "rate(node_disk_read_bytes_total{instance=~\".*gpu.*\"}[5m])",
+                        "legendFormat": "{{instance}} {{device}} Read",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "rate(node_disk_written_bytes_total{instance=~\".*gpu.*\"}[5m])",
+                        "legendFormat": "{{instance}} {{device}} Write",
+                        "refId": "B"
+                    }
+                ]
+            },
+            {
+                "id": 11,
+                "title": "CPU Usage (GPU Nodes)",
+                "type": "timeseries",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 32
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "palette-classic"
+                        },
+                        "unit": "percent",
+                        "min": 0,
+                        "max": 100
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\", instance=~\".*gpu.*\"}[5m])) * 100)",
+                        "legendFormat": "{{instance}} CPU Usage",
+                        "refId": "A"
+                    }
+                ]
+            },
+            {
+                "id": 12,
+                "title": "Memory Usage (GPU Nodes)",
+                "type": "timeseries",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 32
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "color": {
+                            "mode": "palette-classic"
+                        },
+                        "unit": "percent",
+                        "min": 0,
+                        "max": 100
+                    }
+                },
+                "targets": [
+                    {
+                        "expr": "(1 - (node_memory_MemAvailable_bytes{instance=~\".*gpu.*\"} / node_memory_MemTotal_bytes{instance=~\".*gpu.*\"})) * 100",
+                        "legendFormat": "{{instance}} Memory Usage",
+                        "refId": "A"
+                    }
+                ]
+            }
+        ],
+        "annotations": {
+            "list": [
+                {
+                    "name": "GPU Alerts",
+                    "datasource": "Prometheus",
+                    "enable": true,
+                    "expr": "ALERTS{alertname=~\"GPU.*\"}",
+                    "iconColor": "red",
+                    "title": "{{alertname}}",
+                    "text": "{{description}}"
+                }
+            ]
+        },
+        "templating": {
+            "list": [
+                {
+                    "name": "gpu_node",
+                    "type": "query",
+                    "query": "label_values(up{job=\"node-exporter\", instance=~\".*gpu.*\"}, instance)",
+                    "refresh": 1,
+                    "includeAll": true,
+                    "allValue": ".*gpu.*"
+                }
+            ]
+        }
+    }
+}
