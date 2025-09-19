@@ -11,7 +11,52 @@ This setup enables:
 -   GPU time-slicing to share GPUs between multiple workloads
 -   Automated deployment using Terraform and Kubernetes manifests
 
-## 🚀 Setup Options
+## � Table of Contents
+
+-   [🎯 Overview](#-overview)
+-   [📋 Table of Contents](#-table-of-contents)
+-   [🚀 Setup Options](#-setup-options)
+    -   [☁️ Azure Cloud Deployment](#️-azure-cloud-deployment)
+    -   [🏢 On-Premises Deployment](#-on-premises-deployment)
+-   [📋 Prerequisites](#-prerequisites)
+    -   [Required Tools](#required-tools)
+    -   [Azure Requirements](#azure-requirements)
+    -   [Verify Prerequisites](#verify-prerequisites)
+-   [🚀 Quick Start](#-quick-start)
+    -   [1. Clone and Setup](#1-clone-and-setup)
+    -   [2. Azure Authentication](#2-azure-authentication)
+    -   [3. Configure Variables](#3-configure-variables)
+    -   [4. Deploy Infrastructure](#4-deploy-infrastructure)
+    -   [5. Configure kubectl](#5-configure-kubectl)
+    -   [6. Deploy NVIDIA GPU Operator](#6-deploy-nvidia-gpu-operator)
+    -   [7. Configure GPU Time-Slicing](#7-configure-gpu-time-slicing)
+-   [📁 Repository Structure](#-repository-structure)
+-   [⚙️ Configuration Options](#️-configuration-options)
+    -   [Terraform Variables](#terraform-variables)
+    -   [GPU Time-Slicing Configuration](#gpu-time-slicing-configuration)
+-   [🧪 Testing and Validation](#-testing-and-validation)
+    -   [1. Verify GPU Availability](#1-verify-gpu-availability)
+    -   [2. Test GPU Workload](#2-test-gpu-workload)
+    -   [3. Test Time-Slicing](#3-test-time-slicing)
+    -   [4. Run Validation Script](#4-run-validation-script)
+-   [🔧 Troubleshooting](#-troubleshooting)
+    -   [Common Issues](#common-issues)
+    -   [Logs and Debugging](#logs-and-debugging)
+-   [💰 Cost Management & Cleanup](#-cost-management--cleanup)
+    -   [Quick Cleanup](#quick-cleanup)
+    -   [GPU VM Pricing](#gpu-vm-pricing)
+    -   [Cost Optimization Tips](#cost-optimization-tips)
+-   [🧹 Cleanup Options](#-cleanup-options)
+-   [🔒 Security Considerations](#-security-considerations)
+-   [📚 Additional Resources](#-additional-resources)
+    -   [Setup & Teardown Guides](#setup--teardown-guides)
+    -   [External Documentation](#external-documentation)
+-   [🔄 Setup Method Comparison](#-setup-method-comparison)
+-   [🤝 Contributing](#-contributing)
+-   [📄 License](#-license)
+-   [🆘 Support](#-support)
+
+## �🚀 Setup Options
 
 Choose your preferred setup method:
 
@@ -151,6 +196,7 @@ kubectl patch daemonset nvidia-device-plugin-daemonset -n gpu-operator-resources
 
     aks-gpu-terraform/
     ├── README.md                          # This file (Azure setup overview)
+    ├── LICENSE                            # MIT License
     ├── MANUAL_SETUP.md                    # Manual Azure step-by-step setup guide  
     ├── ON_PREMISES_SETUP.md               # On-premises Kubernetes setup guide
     ├── GPU_COMPATIBILITY.md               # GPU compatibility matrix
@@ -390,7 +436,7 @@ For detailed teardown instructions, see **[TEARDOWN.md](TEARDOWN.md)**.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
